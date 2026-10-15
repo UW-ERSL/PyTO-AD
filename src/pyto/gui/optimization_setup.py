@@ -16,7 +16,7 @@ from pyto.autodiff.qoi.responses import RESPONSES, available_responses
 from pyto.topopt.common import GRADIENT_METHOD, gradient_method
 from pyto.topopt.capabilities import (MANUAL_ONLY, cost_estimate, gradient_source, manual_gradient_support,
                                       method_support)
-from pyto.topopt.spec import (METHODS, PYTHON_PREFIX, ConstraintSpec, Issue, MethodSpec, ObjectiveSpec,
+from pyto.topopt.spec import (ACTIVE_METHODS, METHODS, PYTHON_PREFIX, ConstraintSpec, Issue, MethodSpec, ObjectiveSpec,
                               OptimizationSpec, RegularizationSpec, compile_spec, validate)
 
 # Labels shown in the dropdowns -> response names. Order = display order.
@@ -342,7 +342,7 @@ if QtWidgets is not None:
             w = QtWidgets.QWidget()
             form = QtWidgets.QFormLayout(w)
             self.method_combo = QtWidgets.QComboBox()
-            self.method_combo.addItems(list(METHODS))
+            self.method_combo.addItems(list(ACTIVE_METHODS))     # Pareto/LevelSet: from code only
             self.method_combo.currentIndexChanged.connect(self.refresh_method_info)
             self.gradient_combo = QtWidgets.QComboBox()
             for text, key in GRADIENT_CHOICES:
@@ -395,7 +395,7 @@ if QtWidgets is not None:
                 return
             support = method_support(spec, self.physics, self.body_force)
             model = self.method_combo.model()
-            for i, m in enumerate(METHODS):
+            for i, m in enumerate(ACTIVE_METHODS):
                 ok, reason = support[m]
                 item = model.item(i)
                 item.setEnabled(ok)
@@ -457,7 +457,8 @@ if QtWidgets is not None:
             self.constraint_table.setRowCount(0)
             for c in spec.constraints:
                 self._add_constraint_row(c)
-            self.method_combo.setCurrentText(spec.method.name)
+            # projects saved with Pareto/LevelSet open with MMA (those methods are not offered in the GUI any more)
+            self.method_combo.setCurrentText(spec.method.name if spec.method.name in ACTIVE_METHODS else "MMA")
             self.gradient_combo.setCurrentIndex(max(0, self.gradient_combo.findData(gradient_method(spec.method.gradient).value)))
             self.iterations_spin.setValue(spec.method.max_iterations)
             self.move_spin.setValue(spec.method.move_limit)

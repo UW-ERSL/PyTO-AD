@@ -23,6 +23,8 @@ from pyto.topopt.expressions import ExpressionError, compile_expression
 
 SPEC_VERSION = 1
 METHODS = ("MMA", "OC", "PARETO", "LEVELSET")
+ACTIVE_METHODS = ("MMA", "OC")   # offered in the GUI and run by the default benchmark sweep; PARETO and LEVELSET
+                                 # remain available from code and specs, but are secondary methods now
 
 # Expressions that map exactly onto a built-in QOI (spaces ignored).
 _NATIVE_OBJECTIVES = {"Compliance()": TO_QOI.COMPLIANCE, "VolumeFraction()": TO_QOI.VOLUME_FRACTION,

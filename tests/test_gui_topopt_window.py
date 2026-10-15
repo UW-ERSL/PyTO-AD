@@ -282,8 +282,6 @@ def test_topology_every_iteration_option(window_parent):
         assert any(m.GetCellData().HasArray("density") and m.GetNumberOfCells() == updates[-1][0] for m in meshes)
         assert any(type(a).__name__.endswith(("TextActor", "CornerAnnotation", "Text"))
                    for a in parent.plotter.actors.values())
-        w, fe, physics, sel, done, J = run(OptimizationSpec(method=MethodSpec("PARETO", 20)), live=True)
-        assert len(counts.get("PARETO", [])) > 0                       # Pareto: from its iteration log lines
     finally:
         parent.plotter.close()
 

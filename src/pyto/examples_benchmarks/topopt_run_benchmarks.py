@@ -687,7 +687,8 @@ def run_all_benchmarks_isolated(optimizationMethods=None, problems=None):
 	already got split across two days.
 	"""
 	if optimizationMethods is None:
-		optimizationMethods = [TO_METHODS.DENSITYMMA, TO_METHODS.DENSITYOCM, TO_METHODS.PARETO, TO_METHODS.LEVELSET]
+		# MMA and OC by default; Pareto and LevelSet are secondary now (pass them explicitly to include them)
+		optimizationMethods = [TO_METHODS.DENSITYMMA, TO_METHODS.DENSITYOCM]
 	if problems is None:
 		problems = allBenchmarks
 

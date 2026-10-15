@@ -35,8 +35,8 @@ A table with one row per constraint:
 ## Method tab
 | Control | Meaning |
 |---|---|
-| **Method** | MMA, OC, PARETO, LEVELSET. Methods that can't solve your formulation are **disabled**, and the tooltip says why (e.g. OC only minimizes compliance with one volume limit) |
-| **Gradient** | **Automatic differentiation** (default) or **Analytical**. Analytical is offered only for compliance, p-norm stress and volume fraction with MMA or OC; otherwise it's greyed out with the reason. Pareto and LevelSet always use their own analytical sensitivities, so the choice is locked for them. See [Gradients](../code/gradients.md) |
+| **Method** | MMA or OC. A method that can't solve your formulation is **disabled**, and the tooltip says why (e.g. OC only minimizes compliance with one volume limit). Pareto and LevelSet are not offered in the GUI; they remain available from code ([Running the optimizers](../code/running-optimizers.md)). Projects saved with them open with MMA |
+| **Gradient** | **Automatic differentiation** (default) or **Analytical**. Analytical is offered only for compliance, p-norm stress and volume fraction with MMA or OC; otherwise it's greyed out with the reason. See [Gradients](../code/gradients.md) |
 | **Max iterations**, **Move limit** | iteration cap; the largest density change per iteration (MMA, OC) |
 | **Filter radius (elements)** | the density filter radius, in element sizes (1.5 by default). Larger means thicker members |
 | **Heaviside projection** | pushes the design to 0/1 during the run (MMA); needs more iterations |

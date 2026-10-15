@@ -68,8 +68,8 @@ This page lists every ready-made problem in PyTO, with its physics, formulation 
 |---|---|
 | MMA | all |
 | OC | compliance problems, except GravityPlate (self-weight) |
-| Pareto | compliance problems except thermo-structural |
-| LevelSet | compliance problems except body-force and thermo-structural |
+| Pareto (only when requested) | compliance problems except thermo-structural |
+| LevelSet (only when requested) | compliance problems except body-force and thermo-structural |
 
 ---
 Next: [Validation](validation.md) · [Back to contents](../README.md)

@@ -4499,7 +4499,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         self.live_topology_check = QtWidgets.QCheckBox("Show topology every iteration")
         self.live_topology_check.setChecked(False)
         self.live_topology_check.setToolTip("Redraw the density in the 3D view after each iteration "
-                                            "(MMA, OC and Pareto; LevelSet shows the result at the end).")
+                                            "(MMA and OC).")
         self.live_topology_check.toggled.connect(lambda on: setattr(self, "show_each_iteration", bool(on)))
         layout.addWidget(self.live_topology_check)
 

@@ -8,7 +8,7 @@ How to run a sweep: [Benchmarks from code](../code/benchmarks-from-code.md#run-a
 ```
 Results/Results_<date>/
   <category>/                        e.g. Structural-Compliance2.5D_1, Thermal-Compliance2.5D, ThermoStructural
-    <METHOD>/                        DENSITYMMA, DENSITYOCM, PARETO, LEVELSET
+    <METHOD>/                        DENSITYMMA, DENSITYOCM (PARETO, LEVELSET when requested)
       <problem>.png                  the final topology
       <METHOD>_summary.csv           one row per problem
       <METHOD>_summary.png           the same as a table image

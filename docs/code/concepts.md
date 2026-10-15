@@ -11,7 +11,7 @@ flowchart LR
     Mesh --> FE[FE solver<br/>HexStructuralFEA / HexThermalFEA /<br/>ThermoStructuralFEA]
     BC --> FE
     Spec[OptimizationSpec<br/>or TOParams] --> Driver
-    FE --> Driver[Driver<br/>topopt_mma, OC, Pareto, LevelSet]
+    FE --> Driver[Driver<br/>topopt_mma, OC<br/>(Pareto, LevelSet: secondary)]
     Driver --> Result[density on the mesh,<br/>solution, history]
 ```
 

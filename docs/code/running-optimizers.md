@@ -7,8 +7,10 @@ This page describes PyTO's four optimization methods: what each can solve, how t
 |---|---|---|---|
 | **MMA** (Method of Moving Asymptotes) | `topopt_mma` in `pyto.topopt.drivers.mma` | any objective and any number of constraints, all physics | autograd, or [analytical](gradients.md) for compliance, p-norm stress and volume fraction |
 | **OC** (Optimality Criteria) | `topopt_optimality_criteria` in `pyto.topopt.drivers.oc` | minimize compliance with one volume limit | autograd, or analytical |
-| **Pareto** (topological sensitivity) | `topopt_pareto` in `pyto.topopt.drivers.pareto` | minimize compliance with one volume limit, including self-weight | its own derived sensitivity |
-| **LevelSet** | `topopt_levelset` in `pyto.topopt.drivers.levelset` | minimize compliance with one volume limit | its own derived shape derivative |
+| **Pareto** (topological sensitivity; secondary) | `topopt_pareto` in `pyto.topopt.drivers.pareto` | minimize compliance with one volume limit, including self-weight | its own derived sensitivity |
+| **LevelSet** (secondary) | `topopt_levelset` in `pyto.topopt.drivers.levelset` | minimize compliance with one volume limit | its own derived shape derivative |
+
+**MMA and OC are the main methods**: the GUI and the default benchmark sweep use only these two. Pareto and LevelSet are kept as secondary methods: they work from code (sections below) and in a sweep when requested explicitly.
 
 Rules of thumb:
 - **Use MMA** unless you have a reason not to. It is the most general and the best tested.
