@@ -1,4 +1,50 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda"
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "latex-workshop.latex.tools": [
+        {
+            "name": "pdflatex (MiKTeX)",
+            "command": "C:\\Users\\Akshay\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\pdflatex.exe",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "%DOC%"
+            ],
+            "cwd": "%DIR%"
+        },
+        {
+            "name": "bibtex (MiKTeX)",
+            "command": "C:\\Users\\Akshay\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\bibtex.exe",
+            "args": [
+                "%DOCFILE%"
+            ],
+            "cwd": "%DIR%"
+        }
+    ],
+    "latex-workshop.latex.recipes": [
+        {
+            "name": "pdflatex -> bibtex -> pdflatex x2",
+            "tools": [
+                "pdflatex (MiKTeX)",
+                "bibtex (MiKTeX)",
+                "pdflatex (MiKTeX)",
+                "pdflatex (MiKTeX)"
+            ]
+        }
+    ],
+    "latex-workshop.latex.recipe.default": "pdflatex -> bibtex -> pdflatex x2",
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+    "terminal.integrated.profiles.windows": {
+        "Command Prompt": {
+            "path": "C:\\Windows\\System32\\cmd.exe"
+        },
+        "Abaqus 2020": {
+            "path": "C:\\Windows\\System32\\cmd.exe",
+            "args": [
+                "/K",
+                "doskey abaqus=abq2020 $*"
+            ]
+        }
+    }
 }
