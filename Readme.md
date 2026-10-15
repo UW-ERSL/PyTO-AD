@@ -8,7 +8,7 @@ PyTO is a Python library, with a desktop GUI, for **3D topology optimization** o
 
 ## Capabilities
 - **Physics:** linear elasticity, steady heat conduction, and one-way coupled thermo-structural analysis, on voxel meshes made automatically from STL files.
-- **Methods:** MMA (any objective and constraints) and OC (minimum compliance), each with automatic-differentiation or analytical gradients. Pareto and level-set drivers remain available from code as secondary methods.
+- **Methods:** MMA (any objective and constraints) and OC (minimum compliance), each with automatic-differentiation or analytical gradients.
 - **Formulations:**
   - compliance, volume, mass, displacement, temperature, reaction force, p-norm stress and failure factor;
   - **your own formulas** (e.g. `Displacement(Tip, y, mean) / 1e-3 + 0.1 * VolumeFraction()`) or **Python functions**, differentiated automatically;

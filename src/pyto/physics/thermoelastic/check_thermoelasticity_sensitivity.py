@@ -4,8 +4,7 @@ Complete Thermo-Elastic Sensitivity Example
 The ThermoElasticSensitivity class this script demonstrates/verifies used
 to be defined here as a second, independent, byte-for-byte-identical copy
 of pyto.physics.thermoelastic.topopt_thermostructural_sensitivity's class
-(confirmed via diff -- flagged as a known duplication through Phase 5/7,
-same category as pareto.py's topological-sensitivity duplication).
+(confirmed via diff -- flagged as a known duplication through Phase 5/7).
 Consolidated by importing it from there instead, since the two class
 bodies had already drifted apart from a single common origin rather than
 being deliberately different implementations (unlike

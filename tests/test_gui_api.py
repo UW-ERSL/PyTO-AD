@@ -17,11 +17,9 @@ GUI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 def _callables():
     from pyto.physics.structural.hex_structural_fea import HexStructuralFEA
     from pyto.physics.thermal.hex_thermal_fea import HexThermalFEA
-    from pyto.topopt.drivers.levelset import topopt_levelset
     from pyto.topopt.drivers.mma import topopt_mma
     from pyto.topopt.drivers.oc import topopt_optimality_criteria
-    from pyto.topopt.drivers.pareto import topopt_pareto
-    return {f.__name__: f for f in (topopt_mma, topopt_optimality_criteria, topopt_pareto, topopt_levelset,
+    return {f.__name__: f for f in (topopt_mma, topopt_optimality_criteria,
                                     HexStructuralFEA, HexThermalFEA)}
 
 

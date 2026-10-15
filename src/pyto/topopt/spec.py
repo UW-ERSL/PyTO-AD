@@ -5,7 +5,7 @@ library, the method and its settings, filtering, manufacturing options and named
 into the TOParams the drivers already understand, choosing for each part
 
   * the built-in QOI type when the expression is exactly a built-in quantity (Compliance(), VolumeFraction(), Mass(),
-    StressPNorm(), and the stress constraints MaxStress() / StressFailureFactor()), so OC/Pareto/LevelSet stay
+    StressPNorm(), and the stress constraints MaxStress() / StressFailureFactor()), so OC stays
     available for classical problems and benchmarks keep their tested behaviour;
   * otherwise a TO_QOI.GFUNCTION built by the expression compiler, differentiated by autograd (MMA).
 
@@ -22,9 +22,7 @@ from pyto.autodiff.qoi.responses import RESPONSES
 from pyto.topopt.expressions import ExpressionError, compile_expression
 
 SPEC_VERSION = 1
-METHODS = ("MMA", "OC", "PARETO", "LEVELSET")
-ACTIVE_METHODS = ("MMA", "OC")   # offered in the GUI and run by the default benchmark sweep; PARETO and LEVELSET
-                                 # remain available from code and specs, but are secondary methods now
+METHODS = ("MMA", "OC")
 
 # Expressions that map exactly onto a built-in QOI (spaces ignored).
 _NATIVE_OBJECTIVES = {"Compliance()": TO_QOI.COMPLIANCE, "VolumeFraction()": TO_QOI.VOLUME_FRACTION,

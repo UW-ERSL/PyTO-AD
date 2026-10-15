@@ -87,7 +87,7 @@ constraint 2: 5.3e-10 OK
 A mismatch usually means a non-smooth operation, or data changing between calls (for example randomness inside the function).
 
 ## Methods
-User-defined functions need **MMA**. OC, Pareto and LevelSet only handle compliance with one volume constraint, and the [analytical gradients](gradients.md) don't cover user functions.
+User-defined functions need **MMA**. OC only handles compliance with one volume constraint, and the [analytical gradients](gradients.md) don't cover user functions.
 
 ## Useful building blocks
 | Want | Torch code |

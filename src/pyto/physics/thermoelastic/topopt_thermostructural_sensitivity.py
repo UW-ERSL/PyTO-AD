@@ -10,10 +10,7 @@ See pdf documentation for detailed derivations and explanations.
 This is the ThermoElasticSensitivity implementation PyTOGUI.py imports
 and uses. pyto.physics.thermoelastic.check_thermoelasticity_sensitivity
 used to carry a second, byte-for-byte-identical copy of this class
-(confirmed via diff -- same category of duplication already fixed for
-pareto.py's topological-sensitivity functions vs.
-pyto.topopt.topological_sensitivity); that file now imports the class
-from here instead.
+(confirmed via diff); that file now imports the class from here instead.
 """
 
 import numpy as np

@@ -3,7 +3,7 @@
 This page shows how to get and draw the fields of a result: density, deformation, stresses, strains and temperature. It is for anyone making figures or checking a design's behaviour.
 
 ## Where the data is
-After an optimization, the solver holds the last solve. That is the delivered design for MMA, OC, Pareto and LevelSet.
+After an optimization, the solver holds the last solve. That is the delivered design for MMA and OC.
 
 | Data | Where | Shape |
 |---|---|---|

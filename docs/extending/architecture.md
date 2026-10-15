@@ -13,7 +13,7 @@ All code is in `src/pyto/`.
 | `autodiff` | Everything differentiable | `sparse_solve.py` (solve with an adjoint backward pass), `material_model.py` (SIMP/RAMP laws), `qoi/` (quantities), `reference_adjoint/` (derived sensitivities) |
 | `autodiff/qoi` | Quantities of interest | `responses.py` (the response registry used by expressions and the GUI), `__init__.py` (dispatch by `TO_QOI` type), `compliance.py`, `stress.py`, `mass.py`, `volume_fraction.py`, `gvector.py`, `user_function.py` |
 | `topopt` | Optimization: formulation, filters, methods | `common.py` (`TOParams`, `TO_QOI`, `TO_METHODS`, `createFilters`), `spec.py` (`OptimizationSpec`, `compile_spec`), `expressions.py` (formula compiler), `filters.py`, `capabilities.py` (method support, gradient check, cost), `manual_sensitivities.py` |
-| `topopt/drivers` | Optimization methods | `mma.py` (+ `mmaWrapper.py` around the `mmapy` package), `oc.py`, `pareto.py`, `levelset.py`, `_shared.py` (set-up every driver needs) |
+| `topopt/drivers` | Optimization methods | `mma.py` (+ `mmaWrapper.py` around the `mmapy` package), `oc.py`, `_shared.py` (set-up every driver needs) |
 | `io` | Files | `stl_reader.py`, `topopt_stl_recovery.py` (voxel result → smooth STL), `solidworks_interface.py` |
 | `gui` | The desktop application | `PyTOGUI.py` (windows), `optimization_setup.py` (formulation panel and its logic, no Qt needed for the logic), `hex_plotter.py` (PyVista plotting) |
 | `examples_benchmarks` | Ready-made problems and the sweep runner | `hex_*_examples.py` (geometry, loads), `topopt_*_benchmarks.py` (problem enums, `TOParams` per problem), `topopt_run_benchmarks.py` (`build_benchmark`, sweeps) |

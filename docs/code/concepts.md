@@ -11,7 +11,7 @@ flowchart LR
     Mesh --> FE[FE solver<br/>HexStructuralFEA / HexThermalFEA /<br/>ThermoStructuralFEA]
     BC --> FE
     Spec[OptimizationSpec<br/>or TOParams] --> Driver
-    FE --> Driver[Driver<br/>topopt_mma, OC<br/>(Pareto, LevelSet: secondary)]
+    FE --> Driver[Driver<br/>topopt_mma, OC]
     Driver --> Result[density on the mesh,<br/>solution, history]
 ```
 
@@ -25,7 +25,7 @@ flowchart LR
 | **Response** | `pyto.autodiff.qoi.responses` | A quantity computed from the solution and the density: compliance, displacement at a selection, stress, temperature, mass, ... Objectives and constraints are built from responses. |
 | **Formulation** | `pyto.topopt.spec` / `pyto.topopt.common` | What to optimize. Either written as data (`OptimizationSpec` with expressions, compiled by `compile_spec`) or set directly on `TOParams` (`Objective`, `Constraints`). |
 | **Settings** `TOParams` | `pyto.topopt.common` | Everything the drivers read: objective, constraints, filter radius, symmetry, extrusion, Heaviside projection, iterations, gradient mode, ... |
-| **Driver** | `pyto.topopt.drivers` | The optimization method: `topopt_mma` (MMA), `topopt_optimality_criteria` (OC), `topopt_pareto`, `topopt_levelset`. |
+| **Driver** | `pyto.topopt.drivers` | The optimization method: `topopt_mma` (MMA), `topopt_optimality_criteria` (OC). |
 
 ## How one optimization step works
 For the density methods (MMA, OC), each iteration does:

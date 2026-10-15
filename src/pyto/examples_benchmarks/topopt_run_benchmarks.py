@@ -3,9 +3,7 @@ from pyto.topopt.common import *
 from pyto.physics.thermoelastic.thermostructural_fea import ThermoStructuralFEA
 from pyto.topopt.drivers.mma import topopt_mma
 from pyto.topopt.drivers.oc import topopt_optimality_criteria	
-from pyto.topopt.drivers.pareto import topopt_pareto
 
-from pyto.topopt.drivers.levelset import topopt_levelset	
 from pyto.examples_benchmarks.topopt_structural_benchmarks import *
 from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
 from pyto.examples_benchmarks.topopt_thermostructural_benchmarks import *
@@ -234,23 +232,6 @@ def runTOMethodOnBenchmarks(optimizationMethod, problems_override: list = None, 
 				u, history, success,errorMsg,nFEAs = topopt_optimality_criteria(fe_solver,to_params = to_params,
 												maxIterations = to_params.MaxIterations,
 												binarize_topology = binarize_topology and not to_params.HeavisideProjection,print_progress = print_progress)
-			elif optimizationMethod == TO_METHODS.PARETO:
-				if to_problem in benchmarks_structural_noncompliance or \
-						to_problem in benchmarks_thermostructural_problems:
-					continue
-				# Pareto includes the body-force term in its topological sensitivity and removes hanging elements:
-				# it gives the self-weight arch on GravityPlate.
-				u, history, success,errorMsg,nFEAs = topopt_pareto(feaMode, fe_solver,
-														to_params = to_params,print_progress = print_progress)
-			elif optimizationMethod == TO_METHODS.LEVELSET:
-				# Body-force problems are skipped: the level-set shape derivative has no design-dependent load term,
-				# and adding it (checked against autograd) still does not converge on either plate (2026-09-28).
-				if to_problem in benchmarks_structural_noncompliance or \
-						to_problem in benchmarks_structural_bodyforce or \
-						to_problem in benchmarks_thermostructural_problems:
-					continue
-				u, history, success,errorMsg,nFEAs = topopt_levelset(feaMode, fe_solver,
-															to_params = to_params, maxIterations = to_params.MaxIterations)
 			timeTaken = time.time() - startTime
 
 			image_path = f"{output_dir}/{to_problem.name}.png"
@@ -687,7 +668,6 @@ def run_all_benchmarks_isolated(optimizationMethods=None, problems=None):
 	already got split across two days.
 	"""
 	if optimizationMethods is None:
-		# MMA and OC by default; Pareto and LevelSet are secondary now (pass them explicitly to include them)
 		optimizationMethods = [TO_METHODS.DENSITYMMA, TO_METHODS.DENSITYOCM]
 	if problems is None:
 		problems = allBenchmarks

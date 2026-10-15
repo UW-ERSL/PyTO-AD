@@ -83,7 +83,7 @@ u, history, ok, message, n = topopt_mma(fe, to_params=p, maxMMAIterations=20,
 
 What is different:
 - **The thermal load depends on the design.** Material that expands also pushes on the structure. So adding material doesn't always help, and the optimizer may use **less** material than allowed, as in this example (15 % of a 40 % budget). Compliance can also rise when material is added.
-- **Methods:** use **MMA**. OC oscillates on these problems, and Pareto/LevelSet don't support them; `method_support` reports this.
+- **Methods:** use **MMA**. OC oscillates on these problems; `method_support` reports this.
 - **Stress** is computed from the *elastic* strain: total strain minus the free thermal strain α(T − T_ref).
 - **Extra quantities:**
   - `MechanicalCompliance()`: the work of the mechanical loads only, a common objective for heated structures (Ooms et al. 2023).

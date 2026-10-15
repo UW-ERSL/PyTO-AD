@@ -1,14 +1,5 @@
-"""Setup boilerplate shared by the optimizer drivers (mma.py, oc.py,
-pareto.py): density filters, elements-with-forces, element stiffness
-matrix, nodal body force mapping.
-
-Before Phase 5 this ~40-line block was copy-pasted near-verbatim into
-each driver -- e.g. topopt_mma.py building it once for the whole
-optimization run, topopt_ocm.py building an equivalent block, and
-topopt_pareto.py a third copy. Changing how body-force mapping or KE
-assembly worked meant remembering to change it in three places (and one
-already silently diverged during the torch-autodiff migration). This is
-the one place it's defined now.
+"""Setup shared by the optimizer drivers (mma.py, oc.py): density filters, elements-with-forces, element stiffness
+matrix, nodal body force mapping. Defined once here so the drivers cannot diverge.
 """
 import numpy as np
 

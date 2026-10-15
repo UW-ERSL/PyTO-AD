@@ -7,16 +7,10 @@ This page describes PyTO's four optimization methods: what each can solve, how t
 |---|---|---|---|
 | **MMA** (Method of Moving Asymptotes) | `topopt_mma` in `pyto.topopt.drivers.mma` | any objective and any number of constraints, all physics | autograd, or [analytical](gradients.md) for compliance, p-norm stress and volume fraction |
 | **OC** (Optimality Criteria) | `topopt_optimality_criteria` in `pyto.topopt.drivers.oc` | minimize compliance with one volume limit | autograd, or analytical |
-| **Pareto** (topological sensitivity; secondary) | `topopt_pareto` in `pyto.topopt.drivers.pareto` | minimize compliance with one volume limit, including self-weight | its own derived sensitivity |
-| **LevelSet** (secondary) | `topopt_levelset` in `pyto.topopt.drivers.levelset` | minimize compliance with one volume limit | its own derived shape derivative |
-
-**MMA and OC are the main methods**: the GUI and the default benchmark sweep use only these two. Pareto and LevelSet are kept as secondary methods: they work from code (sections below) and in a sweep when requested explicitly.
 
 Rules of thumb:
 - **Use MMA** unless you have a reason not to. It is the most general and the best tested.
 - **OC** is fast for classical compliance problems. It is unreliable when loads depend on the design: thermal expansion (it oscillates), and pure self-weight (the design collapses).
-- **Pareto** traces designs of decreasing volume and handles self-weight well; the result is a 0/1 design.
-- **LevelSet** gives crisp boundaries; it has no body-force term.
 
 `pyto.topopt.capabilities.method_support(spec, physics, body_force)` returns, for a formulation, which methods apply and why not. The GUI uses it to enable its method list.
 
@@ -49,28 +43,6 @@ u, history, success, message, n_fea = topopt_optimality_criteria(
     print_progress=True, binarize_topology=True, progress_callback=None, iteration_callback=None)
 ```
 `to_params` must be *minimize `COMPLIANCE`* with exactly one `VOLUME_FRACTION` constraint. `to_params.materialModel` selects SIMP, RAMP or SIMP+ for OC.
-
-## Pareto
-```python
-from pyto.topopt.drivers.pareto import topopt_pareto
-from pyto.topopt.common import FEA_MODE
-
-u, history, success, message, n_fea = topopt_pareto(
-    FEA_MODE.STRUCTURAL, fe_solver, to_params,        # FEA_MODE.THERMAL for thermal problems
-    rel_err=0.025, vol_decr_max=0.05, vol_decr_min=0.0025, min_local_iters=2, max_local_iters=5,
-    print_progress=True, progress_callback=None)
-```
-It starts from the full design and removes material in steps (between `vol_decr_min` and `vol_decr_max` of the volume per step) until it reaches the volume limit.
-
-## LevelSet
-```python
-from pyto.topopt.drivers.levelset import topopt_levelset
-
-u, history, success, message, n_fea = topopt_levelset(
-    FEA_MODE.STRUCTURAL, fe_solver, to_params, maxIterations=150, numReinit=5,
-    numHolesAlongEachDimension=4, objective_tol=0.005, constraint_tol=0.001, print_progress=False)
-```
-It starts from a design with `numHolesAlongEachDimension` holes per direction and moves the boundary.
 
 ## What comes back
 | Return | Meaning |

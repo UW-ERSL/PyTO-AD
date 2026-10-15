@@ -18,18 +18,15 @@ from pyto.topopt.expressions import compile_expression
 GRADIENT_SOURCE = {
     "MMA": "Automatic differentiation: PyTorch autograd through the FE solve (adjoint), any objective/constraint",
     "OC": "Automatic differentiation: PyTorch autograd (compliance with a volume constraint only)",
-    "PARETO": "Analytical topological sensitivity (compliance with a volume constraint only)",
-    "LEVELSET": "Analytical shape derivative (compliance with a volume constraint only)",
 }
 
 
 def gradient_source(method: str, gradient: str = "autodiff") -> str:
-    if gradient_method(gradient) is GRADIENT_METHOD.ANALYTICAL and method not in MANUAL_ONLY:
+    if gradient_method(gradient) is GRADIENT_METHOD.ANALYTICAL:
         return "Analytical sensitivities: compliance, p-norm stress and volume fraction only"
     return GRADIENT_SOURCE[method]
 
 
-MANUAL_ONLY = ("PARETO", "LEVELSET")          # no autograd path in these drivers
 
 
 def manual_gradient_support(spec: OptimizationSpec, selections: dict = None, body_force: bool = False) -> tuple:
@@ -64,27 +61,22 @@ def method_support(spec: OptimizationSpec, physics: str, body_force: bool = Fals
     """{method: (supported, reason)} for a formulation.
 
     physics: 'structural', 'thermal' or 'thermo-structural'; body_force: a design-dependent (self-weight) load is
-    applied. The limits are the ones found while validating the drivers (notes/5_THERMOELASTIC_PLAN_B_LOG.md B4/B9,
-    handoff 2026-09-28): OC 2-cycles on thermally loaded compliance and collapses on self-weight, the hand-derived
-    methods only know compliance with a volume constraint, and LevelSet has no body-force term.
+    applied. MMA solves every formulation. OC only minimizes compliance with one volume constraint, and is not
+    used for thermo-structural problems (the thermally loaded compliance is not monotone and OC 2-cycles) or with
+    design-dependent body forces (it collapses on self-weight).
     """
     out = {"MMA": (True, "")}
-    classical = _is_classical(spec)
-    why_formulation = "only minimize Compliance() with a single 'VolumeFraction() <= bound' constraint"
-    for method in ("OC", "PARETO", "LEVELSET"):
-        if not classical:
-            out[method] = (False, f"{method} supports {why_formulation}; use MMA.")
-        elif physics == "thermo-structural":
-            out[method] = (False, f"{method} is not available for thermo-structural problems"
-                                  + (" (the thermally loaded compliance is not monotone and OC 2-cycles)" if method == "OC" else "")
-                                  + "; use MMA.")
-        elif body_force and method in ("OC", "LEVELSET"):
-            out[method] = (False, f"{method} does not handle design-dependent body forces (self-weight); "
-                                  f"use MMA or Pareto.")
-        else:
-            out[method] = (True, "")
+    if not _is_classical(spec):
+        out["OC"] = (False, "OC supports only minimize Compliance() with a single 'VolumeFraction() <= bound' "
+                            "constraint; use MMA.")
+    elif physics == "thermo-structural":
+        out["OC"] = (False, "OC is not available for thermo-structural problems (the thermally loaded compliance is "
+                            "not monotone and OC 2-cycles); use MMA.")
+    elif body_force:
+        out["OC"] = (False, "OC does not handle design-dependent body forces (self-weight); use MMA.")
+    else:
+        out["OC"] = (True, "")
     return out
-
 
 def solution_dependent_count(spec: OptimizationSpec, selections: dict = None) -> int:
     """Number of objective/constraint functions whose gradient needs an adjoint solve (volume and mass do not)."""
@@ -101,7 +93,7 @@ def solution_dependent_count(spec: OptimizationSpec, selections: dict = None) ->
 def cost_estimate(spec: OptimizationSpec, selections: dict = None, forward_s: float = None,
                   backward_s: float = None) -> str:
     """Per-iteration linear solves (and seconds, if single forward/backward timings are given) for MMA."""
-    if gradient_method(spec.method.gradient) is GRADIENT_METHOD.ANALYTICAL or spec.method.name in MANUAL_ONLY:
+    if gradient_method(spec.method.gradient) is GRADIENT_METHOD.ANALYTICAL:
         k = int(any(_key(e) == "StressPNorm()"
                     for e in [spec.objective.expression] + [c.expression for c in spec.active_constraints]))
         return (f"Per iteration: 1 forward FE solve + {k} adjoint solve{'s' if k != 1 else ''} "

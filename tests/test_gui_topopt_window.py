@@ -240,7 +240,7 @@ def test_analysis_window_initial_design_results(window_parent, tmp_path):
 
 def test_topology_every_iteration_option(window_parent):
     """'Show topology every iteration' is off by default (no redraws); when on, MMA redraws the design once per
-    iteration in the main view (via iteration_callback), and Pareto via its iteration log lines."""
+    iteration in the main view (via iteration_callback)."""
     import pyvista as pv
     import pyto.gui.PyTOGUI as G
     from pyto.topopt.spec import MethodSpec, OptimizationSpec

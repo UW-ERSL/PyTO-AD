@@ -17,7 +17,6 @@ from pyto.physics.structural.hex_structural_fea import HexStructuralFEA
 from pyto.physics.structural.hex_modal_fea import ModalFEA
 from pyto.physics.thermal.hex_thermal_fea import HexThermalFEA
 from pyto.topopt.drivers.mma import topopt_mma
-from pyto.topopt.drivers.pareto import topopt_pareto
 from pyto.topopt.drivers.oc import topopt_optimality_criteria
 from pyto.core.tet_mesher import TetMesher
 from pyto.examples_benchmarks.hex_structural_examples import *
@@ -45,12 +44,10 @@ class pyTODemos(enum.Enum):
      # The following demos are non-conforming voxel mesh Structural topology optimization
 	HexStructuralTO_DensityMMA = enum.auto() # Create and solve a structural topology optimization problem using Density-method and MMA solver
 	HexStructuralTO_DensityOC = enum.auto() # Create and solve a structural topology optimization problem using Density-method and OC solver
-	HexStructuralTO_Pareto = enum.auto() # Create and solve a structural topology optimization problem using Pareto method
     
     # The following demos are non-conforming voxel mesh thermal topology optimization
 	HexThermalTO_DensityMMA = enum.auto() # Create and solve a thermal topology optimization problem using Density-method and MMA solver
 	HexThermalTO_DensityOC = enum.auto() # Create and solve a thermal topology optimization problem using Density-method and OC solver
-	HexThermalTO_Pareto = enum.auto() # Create and solve a thermal topology optimization problem using Pareto method
     
 
     # The following demos use a conforming tet mesh
@@ -335,23 +332,6 @@ while True:
             print(f"Error: {errorMsg}")
         fe_solver.plot_mesh(title = title)
 
-    elif demo == pyTODemos.HexStructuralTO_Pareto:
-        feaMode = FEA_MODE.STRUCTURAL
-        to_problem = StructuralTOExamples.Mitchell_3
-        mesh, mat_prop, bc,elem_body_force, to_params = getStructuralTOProblem(to_problem)
-        
-        fe_solver = HexStructuralFEA(mesh=mesh, mat_prop=mat_prop, solver= Solvers.PARDISO, bc=bc)
-        u, history, success,errorMsg,nFEAs = topopt_pareto(feaMode, fe_solver,to_params,plot_progress=True)
-        plt.figure()
-        plt.plot(history['volfrac'], history['objective'], marker='o')
-        plt.xlabel('Volume Fraction')
-        plt.ylabel('objective')
-        plt.title('Pareto: Volume vs Compliance History')
-        plt.grid(True)
-        plt.show()
-        if not success:
-            print(f"Error: {errorMsg}")
-        fe_solver.plot_mesh()
     elif demo == pyTODemos.HexThermalTO_DensityMMA:
         feaMode = FEA_MODE.THERMAL
         to_problem = ThermalTOExamples.FourCornersThermal # Choose the TO problem
@@ -451,23 +431,6 @@ while True:
             print(f"Error: {errorMsg}")
         fe_solver.plot_mesh(title = title)
 
-    elif demo == pyTODemos.HexThermalTO_Pareto:
-        feaMode = FEA_MODE.THERMAL
-        to_problem = ThermalTOExamples.FourCornersThermal
-        mesh, mat_prop, bc,elem_body_force, to_params = getThermalTOProblem(to_problem)
-        
-        fe_solver = HexThermalFEA(mesh=mesh, mat_prop=mat_prop, solver= Solvers.PARDISO, bc=bc)
-        u, history, success,errorMsg,nFEAs = topopt_pareto(feaMode, fe_solver,to_params,plot_progress=True)
-        plt.figure()
-        plt.plot(history['volfrac'], history['objective'], marker='o')
-        plt.xlabel('Volume Fraction')
-        plt.ylabel('objective')
-        plt.title('Pareto: Volume vs Compliance History')
-        plt.grid(True)
-        plt.show()
-        if not success:
-            print(f"Error: {errorMsg}")
-        fe_solver.plot_mesh()
     elif demo == pyTODemos.TetCreateMesh:
         # Create a tet mesh from an STL file and display it
         tetmesh = TetMesher()

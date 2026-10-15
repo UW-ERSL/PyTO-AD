@@ -1,6 +1,6 @@
 # Add an optimization method
 
-This recipe adds a new optimization algorithm (a **driver**) next to MMA, OC, Pareto and LevelSet, or in place of one. It is for developers trying a new update rule, a different constraint handling, a population-based method, or a machine-learning approach.
+This recipe adds a new optimization algorithm (a **driver**) next to MMA and OC, or in place of one. It is for developers trying a new update rule, a different constraint handling, a population-based method, or a machine-learning approach.
 
 ## The driver contract
 ```text
@@ -73,8 +73,8 @@ A driver works as soon as you call it from a script. To make it a first-class me
 |---|---|---|
 | 1 | `topopt/common.py` | a member of `TO_METHODS`, e.g. `MYMETHOD = enum.auto()` |
 | 2 | `topopt/spec.py` | its name in `METHODS` (the GUI's Method list is built from this tuple) |
-| 3 | `topopt/capabilities.py` | its support rules in `method_support()` (which formulations and physics it handles, and why not otherwise), a line in `GRADIENT_SOURCE`, and its name in `MANUAL_ONLY` if it never uses autograd |
-| 4 | `examples_benchmarks/topopt_run_benchmarks.py` | a branch in `runTOMethodOnBenchmarks` next to the MMA/OC/Pareto/LevelSet calls (with `continue` for problems it can't run), and the enum in the default list of `run_all_benchmarks_isolated` |
+| 3 | `topopt/capabilities.py` | its support rules in `method_support()` (which formulations and physics it handles, and why not otherwise), a line in `GRADIENT_SOURCE` |
+| 4 | `examples_benchmarks/topopt_run_benchmarks.py` | a branch in `runTOMethodOnBenchmarks` next to the MMA/OC calls (with `continue` for problems it can't run), and the enum in the default list of `run_all_benchmarks_isolated` |
 | 5 | `gui/PyTOGUI.py` | a branch in `StructuralTopOptWindow._run_optimization` calling your driver with the GUI's callbacks |
 | 6 | `tests/test_drivers_smoke.py` | a test: a few iterations on the structural fixture run and lower the objective |
 

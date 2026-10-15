@@ -16,13 +16,12 @@ from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
 def run_topopt_mma(to_problem):
     """Run topology optimization using the MMA method.
 
-    Mirrors run_topopt_ocm/run_topopt_levelset/run_pareto_topopt's pattern
-    (see topopt/drivers/oc.py, levelset.py, pareto.py) -- builds the mesh
+    Mirrors run_topopt_ocm's pattern (see topopt/drivers/oc.py) -- builds the mesh
     and FE solver for the given example, then calls topopt_mma() and plots
     the result. This wrapper didn't previously exist (only topopt_mma()
     itself did), which meant `from pyto.topopt.drivers.mma import
     run_topopt_mma` -- e.g. main.ipynb's import cell -- raised an
-    ImportError, unlike the equivalent OC/Levelset/Pareto imports.
+    ImportError, unlike the equivalent OC import.
 
     Args:
         to_problem: A StructuralTOExamples or ThermalTOExamples member

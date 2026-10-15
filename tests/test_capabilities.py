@@ -16,16 +16,17 @@ def test_method_support_matrix():
     s = method_support(CLASSICAL, "structural")
     assert all(ok for ok, _ in s.values())
     s = method_support(STRESS, "structural")
-    assert s["MMA"][0] and not any(s[m][0] for m in ("OC", "PARETO", "LEVELSET"))
+    assert s["MMA"][0] and not s["OC"][0]
     assert "use MMA" in s["OC"][1]
-    s = method_support(CLASSICAL, "structural", body_force=True)        # self-weight: Pareto yes, OC/LevelSet no
-    assert s["MMA"][0] and s["PARETO"][0] and not s["OC"][0] and not s["LEVELSET"][0]
+    s = method_support(CLASSICAL, "structural", body_force=True)        # self-weight: MMA only
+    assert s["MMA"][0] and not s["OC"][0] and "body forces" in s["OC"][1]
     s = method_support(CLASSICAL, "thermo-structural")
     assert s["MMA"][0] and not s["OC"][0] and "2-cycles" in s["OC"][1]
     assert all(ok for ok, _ in method_support(CLASSICAL, "thermal").values())
     maxi = OptimizationSpec(objective=ObjectiveSpec("Compliance()", "maximize"))
     assert not method_support(maxi, "structural")["OC"][0]
-    assert "autograd" in gradient_source("MMA") and "Analytical" in gradient_source("PARETO")
+    assert "autograd" in gradient_source("MMA") and "Analytical" in gradient_source("MMA", "analytical")
+    assert set(method_support(CLASSICAL, "structural")) == {"MMA", "OC"}
 
 
 def test_cost_estimate_counts_adjoint_solves():

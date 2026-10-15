@@ -20,7 +20,7 @@ spec = OptimizationSpec(
 |---|---|
 | `ObjectiveSpec` | `expression`, `sense` |
 | `ConstraintSpec` | `expression`, `op` (`<=` / `>=`), `bound` (SI units), `enabled` |
-| `MethodSpec` | `name` (`MMA`, `OC`, `PARETO`, `LEVELSET`), `max_iterations`, `move_limit`, `gradient` (`autodiff` / `analytical`; old name `manual` accepted) |
+| `MethodSpec` | `name` (`MMA`, `OC`), `max_iterations`, `move_limit`, `gradient` (`autodiff` / `analytical`; old name `manual` accepted) |
 | `RegularizationSpec` | `filter_radius` (in elements), `heaviside` (smooth 0/1 projection, MMA) |
 | `ManufacturingSpec` | `extrude` (`""`, `X`, `Y`, `Z`), `symmetry` (planes normal to these axes), `cyclic_z` (sectors about z), `keep_selection` (name of an element selection kept solid) |
 
@@ -55,7 +55,7 @@ to_params = compile_spec(spec, selections, base=None, allow_code=False)
 - It raises `ValueError` for a formulation that can't be compiled.
 
 What compilation does:
-1. **Built-in quantities** (`Compliance()`, `VolumeFraction()`, `Mass()`, `StressPNorm()`, and the constraints `MaxStress()`, `StressFailureFactor()`) become the built-in types (`TO_QOI.COMPLIANCE`, ...). That keeps OC, Pareto and LevelSet available for classical problems, and allows [analytical gradients](gradients.md).
+1. **Built-in quantities** (`Compliance()`, `VolumeFraction()`, `Mass()`, `StressPNorm()`, and the constraints `MaxStress()`, `StressFailureFactor()`) become the built-in types (`TO_QOI.COMPLIANCE`, ...). That keeps OC available for classical problems, and allows [analytical gradients](gradients.md).
 2. **Anything else** becomes a `TO_QOI.GFUNCTION`: a torch function compiled from the expression, differentiated by autograd (MMA).
 3. **Constraints are normalized** to the form `g ≤ 0` that MMA expects:
 
@@ -99,7 +99,7 @@ Other useful `TOParams` fields:
 | `ExtrudeX/Y/Z`, `XSymmetry/YSymmetry/ZSymmetry`, `X/Y/ZAxisAngularSymmetry` | manufacturing filters |
 | `ElemsToKeep` | elements kept solid |
 | `KeepFixedElems` | read by the benchmark builders: they add the elements at supports to `ElemsToKeep` |
-| `materialModel` | interpolation law for OC: `MaterialModel.SIMP` (default), `RAMP`, `SIMPPLUS`; MMA, Pareto and LevelSet always use SIMP |
+| `materialModel` | interpolation law for OC: `MaterialModel.SIMP` (default), `RAMP`, `SIMPPLUS`; MMA always uses SIMP |
 | `Gradient` | `GRADIENT_METHOD.AUTODIFF` (default) or `GRADIENT_METHOD.ANALYTICAL` |
 | `ThermalReferenceTemperature`, `ConductivityPenalty`, `ConductivityVoidRatio` | thermo-structural settings |
 

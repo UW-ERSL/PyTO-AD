@@ -51,7 +51,7 @@ This is a fragment: the assembly indices (`_unique_indices`, `_scatter_inverse`,
    | `Response(...)` physics sets in `responses.py` | add the name to the responses that make sense (e.g. `Compliance`, `VolumeFraction`) and add new responses for your fields |
    | `compute_compliance_torch` in `autodiff/qoi/compliance.py` | choose the right material law for your solver (it uses the element matrix and `edofMat`) |
    | `compute_element_stiffness` in `topopt/drivers/_shared.py` | return your element matrix; it raises `TypeError` for unknown solvers |
-   | `nDOFPerNode = 3 if isinstance(...HexStructuralFEA) else 1` | in `_shared.py`, `mma.py`, `oc.py`, `pareto.py`: correct only for 1 or 3 dofs per node |
+   | `nDOFPerNode = 3 if isinstance(...HexStructuralFEA) else 1` | in `_shared.py`, `mma.py`, `oc.py`: correct only for 1 or 3 dofs per node |
    | `method_support()` in `topopt/capabilities.py` | which methods your physics supports (MMA always, if the solve is differentiable) |
    | `manual_support()` in `topopt/manual_sensitivities.py` | refuse analytical gradients until you've [added one](add-a-manual-sensitivity.md) |
    | `validate()` in `topopt/spec.py` | accepts any physics name the responses know |

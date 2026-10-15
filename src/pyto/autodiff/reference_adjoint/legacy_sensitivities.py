@@ -197,7 +197,6 @@ def compute_solution_dotproduct_and_gradient(sol: np.ndarray, x,fe_solver,KE,mat
 # (compute_objective_topological_sensitivity_compliance,
 # computeStructuralTopologicalSensitivity, compute_pnorm_stress_and_TS,
 # computeThermalTopologicalSensitivity) moved to
-# pyto.topopt.topological_sensitivity in Phase 5 -- they are the Pareto
-# driver's actual production sensitivity computation, not a NumPy twin of
-# a torch-native replacement, so grouping them with the test-oracle-only
-# functions above was misleading. See that module's docstring for why.
+# pyto.topopt.topological_sensitivity in Phase 5 (they are not NumPy twins
+# of torch-native functions, so they do not belong with the test-oracle-only
+# functions above).

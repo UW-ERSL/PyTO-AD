@@ -347,7 +347,7 @@ def getStructuralTOProblem(to_problem: StructuralTOExamples,nDOFDesired = None, 
         to_params.ZSymmetry = True
         to_params.nDOFDesired = 75000 if nDOFDesired is None else nDOFDesired
         to_params.Objective = (TO_QOI.COMPLIANCE, None)
-        to_params.MaxIterations = 300  # removes ~85% of the material; LevelSet needs ~200 iterations to get there
+        to_params.MaxIterations = 300  # removes ~85% of the material
         to_params.Constraints = [(TO_QOI.VOLUME_FRACTION, None, 0.15)] 
 
     elif to_problem == StructuralTOExamples.GEGrabCAD:

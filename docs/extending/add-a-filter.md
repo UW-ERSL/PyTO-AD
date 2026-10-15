@@ -15,7 +15,6 @@ How each method uses `H`:
 |---|---|---|
 | MMA | **density filter**: `x_phys = H x / Hs` | autograd (or the analytical chain rule `Hᵀ(g / Hs)`), automatic |
 | OC | **sensitivity filter** on `x · dC/dx` | inside the OC update |
-| Pareto, LevelSet | smoothing of their sensitivities | inside the method |
 
 A new linear filter therefore needs **no gradient code** for any method.
 

@@ -8,7 +8,6 @@ import pyto.solve.numpy_backend as lin_solv
 import os
 from pyto.topopt.drivers.mma import topopt_mma
 from pyto.topopt.drivers.oc import topopt_optimality_criteria	
-from pyto.topopt.drivers.pareto import topopt_pareto
 from pyto.examples_benchmarks.hex_structural_examples import *
 from pyto.topopt.common import *
 from pyto.examples_benchmarks.topopt_structural_benchmarks import *

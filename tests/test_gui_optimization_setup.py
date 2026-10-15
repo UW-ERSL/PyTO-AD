@@ -112,11 +112,11 @@ def test_formulation_panel_round_trip_and_method_enabling(qapp):
     out = panel.get_spec()
     assert out.objective == spec.objective and out.constraints == spec.constraints
     assert (out.method.name, out.method.max_iterations, round(out.method.move_limit, 2)) == ("MMA", 77, 0.15)
-    # a non-compliance objective disables OC/Pareto/LevelSet in the method list
+    # a non-compliance objective disables OC in the method list
     panel.refresh_method_info()
     model = panel.method_combo.model()
     enabled = {panel.method_combo.itemText(i): model.item(i).isEnabled() for i in range(panel.method_combo.count())}
-    assert enabled == {"MMA": True, "OC": False}                 # Pareto/LevelSet are not offered in the GUI
+    assert enabled == {"MMA": True, "OC": False}
     assert "autograd" in panel.gradient_label.text()
     # the classical formulation enables them again, and choosing a built-in fills in the expression
     panel.set_spec(gs.default_spec())
@@ -133,7 +133,7 @@ def test_formulation_panel_round_trip_and_method_enabling(qapp):
 
 
 def test_gradient_choice(qapp):
-    """AD by default; Manual only where a hand-derived gradient exists; Pareto/LevelSet forced to Manual."""
+    """AD by default; Analytical only where an analytical gradient exists."""
     panel = gs.FormulationPanel()
     panel.set_context("structural", {"Load1": {"nodes": [1]}})
     panel.set_spec(gs.default_spec())
@@ -159,11 +159,11 @@ def test_gradient_choice(qapp):
     spec.method.gradient = "manual"                     # the old name is still accepted
     assert any("Analytical gradient not available" in str(i) for i in gs.prepare_run(spec, "structural",
                                                                                     {"Load1": {"nodes": [1]}}).errors)
-    # Pareto/LevelSet are not in the GUI's method list; a project saved with one opens with MMA
+    # the method list is MMA and OC; a project saved with any other method opens with MMA
     panel.set_spec(gs.default_spec())
     assert [panel.method_combo.itemText(i) for i in range(panel.method_combo.count())] == ["MMA", "OC"]
     spec = gs.default_spec()
-    spec.method = MethodSpec("PARETO", 20)
+    spec.method = MethodSpec("OLD_METHOD", 20)
     panel.set_spec(spec)
     assert panel.get_spec().method.name == "MMA" and panel.gradient_combo.isEnabled()
     # old saved specs without the field load as AD

@@ -21,10 +21,8 @@ DIRECT_SOLVER_DOF_CUTOFF = 100000 #  dof limit for direct solver, for greater nu
 class TO_METHODS(enum.Enum):
 	DENSITYMMA = enum.auto()
 	DENSITYOCM = enum.auto()
-	PARETO = enum.auto()
-	LEVELSET = enum.auto()
 
-class GRADIENT_METHOD(enum.Enum):  # how MMA/OC get the sensitivities (Pareto/LevelSet always use their own)
+class GRADIENT_METHOD(enum.Enum):  # how MMA/OC get the sensitivities
 	AUTODIFF = "autodiff"      # torch autograd through the FE solve (adjoint); any objective/constraint
 	ANALYTICAL = "analytical"  # derived (adjoint) sensitivities: compliance, p-norm stress, volume fraction
 

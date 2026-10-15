@@ -29,8 +29,6 @@ from pyto.physics.thermoelastic.thermostructural_fea import ThermoStructuralFEA
 from pyto.gui.optimization_setup import (FormulationPanel, default_spec, display_objective,
                                         manufacturing_from_topopt_options, migrate_performance_options, prepare_run,
                                         project_entries, restore_from_project, final_design_summary)
-from pyto.topopt.drivers.pareto import topopt_pareto
-from pyto.topopt.drivers.levelset import topopt_levelset
 from pyto.io.topopt_stl_recovery import extract_isosurface_cnn, subtract_voids_from_stl
 
 #This is optional; requires win32com
@@ -4690,7 +4688,6 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         method = spec.method.name
         self.to_params = to_params
         self.fe_solver = fe_solver
-        feaMode = FEA_MODE.THERMAL if self.physics == "thermal" else FEA_MODE.STRUCTURAL
 
         success = False
         error_msg = ""
@@ -4705,32 +4702,10 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
                     print(f"[live topology] {e}")
 
         def progress_callback(*args):
-            """
-            Progress callback that creates mesh data and emits it via signal.
-            Only updates visualization when "Iteration:" message is received.
-            """
-            # Handle text messages - always send to GUI
+            """Driver log messages go to the GUI log (MMA/OC draw the design from iteration_callback)."""
             if len(args) == 1 and isinstance(args[0], str):
-                msg = str(args[0])
-                self.optimization_progress.emit(msg)
-                
-                # Only update visualization on "Iteration:" messages
-                if 'Iteration:' not in msg:
-                    return  # Skip visualization for other messages
-            else:
-                # If no args or not a string, skip
-                return
-            
-            # "Iteration:" message: draw the design if enabled. MMA and OC draw from iteration_callback instead
-            # (MMA prints its iteration lines to the terminal, so this path never fired for it).
-            if not self.show_each_iteration or method in ("MMA", "OC"):
-                return
-            try:
-                import re
-                match = re.search(r'Iteration:\s*(\d+)', msg)
-                self.optimization_update.emit(density_snapshot(fe_solver.mesh), int(match.group(1)) if match else 0)
-            except Exception as e:
-                print(f"[CALLBACK] Error creating visualization: {e}")
+                self.optimization_progress.emit(str(args[0]))
+
         try:
             if method == "MMA":
                 u, history, success, error_msg, n_feas = topopt_mma(
@@ -4764,34 +4739,6 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
                     plotter=None,
                 )
 
-            elif method == "PARETO":
-                u, history, success, error_msg, n_feas = topopt_pareto(
-                    feaMode=feaMode,
-                    fe_solver=fe_solver,
-                    to_params=to_params,
-                    rel_err=0.02,
-                    vol_decr_max=0.05,
-                    vol_decr_min=0.0025,
-                    min_local_iters=2,
-                    max_local_iters=5,
-                    print_progress=True,
-                    plot_progress=False,
-                    progress_callback=progress_callback,
-                    plotter=None,
-                )
-
-            elif method == "LEVELSET":
-                u, history, success, error_msg, n_feas = topopt_levelset(
-                    feaMode=feaMode,
-                    fe_solver=fe_solver,
-                    to_params=to_params,
-                    maxIterations=to_params.MaxIterations,
-                    numReinit=10000,
-                    print_progress=True,
-                    plot_progress=False,
-                    plotter=None,
-                )
-                
             else:
                 error_msg = f"Method {method} not implemented"
                 success = False

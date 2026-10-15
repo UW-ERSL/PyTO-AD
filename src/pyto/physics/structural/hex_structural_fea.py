@@ -818,9 +818,8 @@ class HexStructuralFEA:
     Notes:
         Mirrors HexThermalFEA.plot_pseudo_density_realtime -- this method
         was previously missing here, so any driver's plot_progress=True
-        path (topopt_optimality_criteria/topopt_pareto/topopt_levelset all
-        call fe_solver.plot_pseudo_density_realtime(...) generically for
-        both physics) raised an AttributeError for structural problems.
+        path (the drivers call fe_solver.plot_pseudo_density_realtime(...)
+        generically for both physics) raised an AttributeError for structural problems.
         Delegates to the HexFEAPlotter, which handles the actual
         visualization. When external_plotter is provided (GUI mode), it
         will use that plotter instead of creating a new BackgroundPlotter

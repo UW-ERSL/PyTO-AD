@@ -15,7 +15,7 @@ and sets it in the (type, param[, limit]) slot the other QOIs use:
 
 The gradient is computed by autograd through the FE solve (adjoint), so no sensitivity has to be written. The
 function must use torch operations only (NumPy breaks the gradient path) and must depend only on its
-arguments. Only the MMA driver supports it; OC, Pareto and LevelSet use hand-derived sensitivities.
+arguments. Only the MMA driver supports it; OC handles compliance with a volume constraint only.
 """
 import torch
 

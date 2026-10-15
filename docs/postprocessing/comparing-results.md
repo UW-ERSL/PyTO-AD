@@ -8,7 +8,7 @@ How to run a sweep: [Benchmarks from code](../code/benchmarks-from-code.md#run-a
 ```
 Results/Results_<date>/
   <category>/                        e.g. Structural-Compliance2.5D_1, Thermal-Compliance2.5D, ThermoStructural
-    <METHOD>/                        DENSITYMMA, DENSITYOCM (PARETO, LEVELSET when requested)
+    <METHOD>/                        DENSITYMMA, DENSITYOCM
       <problem>.png                  the final topology
       <METHOD>_summary.csv           one row per problem
       <METHOD>_summary.png           the same as a table image
@@ -43,7 +43,7 @@ print(both.sort_values("change_%").to_string())
 - **Same volume, objective within ±1 %:** a match. Small differences come from the optimizer's path: solver round-off, thread count.
 - **Lower objective at the same or lower volume:** a better design, e.g. after a bug fix or a better method.
 - **Very large changes** (−100 %, or orders of magnitude): usually the **reference** or the new run evaluated something different, not a real improvement. For example, a reference made before a bug fix, or a disconnected design after thresholding. Look at both topology images before drawing conclusions.
-- **Different volume:** the objectives can't be compared directly. Check why the volume changed; OC and Pareto may stop at a slightly different volume.
+- **Different volume:** the objectives can't be compared directly. Check why the volume changed; OC may stop at a slightly different volume.
 - **`success` False or an `errorMsg`:** read the message; see [Troubleshooting](../reference/troubleshooting.md).
 
 ## Comparing with published results

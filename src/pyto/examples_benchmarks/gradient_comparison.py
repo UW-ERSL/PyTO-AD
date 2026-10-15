@@ -1,7 +1,7 @@
 """Full benchmark runs with automatic differentiation and with analytical sensitivities, side by side.
 
 This is the benchmark sweep (topopt_run_benchmarks) run twice, once per gradient method, on the problems where
-analytical sensitivities apply, for MMA and OC only (no Pareto / LevelSet). Every run is a complete optimization
+analytical sensitivities apply, for MMA and OC. Every run is a complete optimization
 exactly as in the sweep: same build_benchmark problem, solver, iteration limit, binarization, topology images
 and summary CSV/tables. Only to_params.Gradient differs. Order: for each problem MMA with AUTODIFF then
 ANALYTICAL; after all MMA problems, OC the same way. Each run is its own process (as in the sweep), so neither

@@ -14,9 +14,9 @@ import numpy as np
 
 from pyto.autodiff.qoi.responses import RESPONSES, available_responses
 from pyto.topopt.common import GRADIENT_METHOD, gradient_method
-from pyto.topopt.capabilities import (MANUAL_ONLY, cost_estimate, gradient_source, manual_gradient_support,
+from pyto.topopt.capabilities import (cost_estimate, gradient_source, manual_gradient_support,
                                       method_support)
-from pyto.topopt.spec import (ACTIVE_METHODS, METHODS, PYTHON_PREFIX, ConstraintSpec, Issue, MethodSpec, ObjectiveSpec,
+from pyto.topopt.spec import (METHODS, PYTHON_PREFIX, ConstraintSpec, Issue, MethodSpec, ObjectiveSpec,
                               OptimizationSpec, RegularizationSpec, compile_spec, validate)
 
 # Labels shown in the dropdowns -> response names. Order = display order.
@@ -122,7 +122,7 @@ def prepare_run(spec: OptimizationSpec, physics: str, selections: dict, body_for
     method = spec.method.name
     if method in plan.support and not plan.support[method][0]:
         plan.issues.append(Issue("error", plan.support[method][1]))
-    manual = gradient_method(spec.method.gradient) is GRADIENT_METHOD.ANALYTICAL and method not in MANUAL_ONLY
+    manual = gradient_method(spec.method.gradient) is GRADIENT_METHOD.ANALYTICAL
     if manual:
         ok, why = manual_gradient_support(spec, selections, body_force)
         if not ok:
@@ -342,7 +342,7 @@ if QtWidgets is not None:
             w = QtWidgets.QWidget()
             form = QtWidgets.QFormLayout(w)
             self.method_combo = QtWidgets.QComboBox()
-            self.method_combo.addItems(list(ACTIVE_METHODS))     # Pareto/LevelSet: from code only
+            self.method_combo.addItems(list(METHODS))
             self.method_combo.currentIndexChanged.connect(self.refresh_method_info)
             self.gradient_combo = QtWidgets.QComboBox()
             for text, key in GRADIENT_CHOICES:
@@ -395,7 +395,7 @@ if QtWidgets is not None:
                 return
             support = method_support(spec, self.physics, self.body_force)
             model = self.method_combo.model()
-            for i, m in enumerate(ACTIVE_METHODS):
+            for i, m in enumerate(METHODS):
                 ok, reason = support[m]
                 item = model.item(i)
                 item.setEnabled(ok)
@@ -406,19 +406,11 @@ if QtWidgets is not None:
             manual_ok, manual_why = manual_gradient_support(spec, self.selections, self.body_force)
             manual_item = self.gradient_combo.model().item(1)
             self.gradient_combo.blockSignals(True)
-            if method in MANUAL_ONLY:                      # these drivers have no autograd path
-                self.gradient_combo.setCurrentIndex(1)
-                self.gradient_combo.setEnabled(False)
-                self.gradient_combo.setToolTip(f"{method} always uses its own analytical sensitivity.")
-            else:
-                if not self.gradient_combo.isEnabled():    # leaving Pareto/LevelSet: back to the AD default
-                    self.gradient_combo.setCurrentIndex(0)
-                self.gradient_combo.setEnabled(True)
-                manual_item.setEnabled(manual_ok)
-                manual_item.setToolTip(manual_why)
-                if not manual_ok:
-                    self.gradient_combo.setCurrentIndex(0)
-                self.gradient_combo.setToolTip(manual_why or "Analytical: compliance, p-norm stress and volume fraction; no autograd graph.")
+            manual_item.setEnabled(manual_ok)
+            manual_item.setToolTip(manual_why)
+            if not manual_ok:
+                self.gradient_combo.setCurrentIndex(0)
+            self.gradient_combo.setToolTip(manual_why or "Analytical: compliance, p-norm stress and volume fraction; no autograd graph.")
             self.gradient_combo.blockSignals(False)
             self.gradient_label.setText(gradient_source(method, self.gradient_combo.currentData()))
             try:
@@ -457,8 +449,7 @@ if QtWidgets is not None:
             self.constraint_table.setRowCount(0)
             for c in spec.constraints:
                 self._add_constraint_row(c)
-            # projects saved with Pareto/LevelSet open with MMA (those methods are not offered in the GUI any more)
-            self.method_combo.setCurrentText(spec.method.name if spec.method.name in ACTIVE_METHODS else "MMA")
+            self.method_combo.setCurrentText(spec.method.name if spec.method.name in METHODS else "MMA")
             self.gradient_combo.setCurrentIndex(max(0, self.gradient_combo.findData(gradient_method(spec.method.gradient).value)))
             self.iterations_spin.setValue(spec.method.max_iterations)
             self.move_spin.setValue(spec.method.move_limit)

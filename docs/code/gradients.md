@@ -31,7 +31,7 @@ to_params.Gradient = GRADIENT_METHOD.ANALYTICAL      # default GRADIENT_METHOD.A
 ```
 or `MethodSpec(gradient="analytical")` in a spec, or **Method → Gradient → Analytical** in the GUI. The strings `"autodiff"` and `"analytical"` are accepted too, and so is the old name `"manual"` (e.g. in saved projects); `gradient_method(value)` converts any of these to the enum.
 
-It applies to **MMA and OC**. For MMA, the analytical gradient is taken with respect to the physical density and chained back through the Heaviside projection and the density filter by hand. **Pareto and LevelSet** always use their own derived sensitivities.
+It applies to **MMA and OC**. For MMA, the analytical gradient is taken with respect to the physical density and chained back through the Heaviside projection and the density filter by hand.
 
 ### Same solver path in both modes
 Both modes run the **same forward FE solve** (same assembly, same linear solver). The analytical adjoint solve then uses that solve's matrix and solver object through `fe.adjoint_solve(rhs)`:
@@ -88,7 +88,7 @@ PYTHONPATH=src python tests/test_gradient_cost.py --ndof 25000 --repeat 10 --sol
 Results for this repository are summarized in [Validation](../reference/validation.md).
 
 ## Comparing the two on the benchmarks
-`pyto.examples_benchmarks.gradient_comparison` runs the **benchmark sweep twice**, once with each gradient method. It covers every sweep problem where analytical sensitivities apply, for MMA and OC only (no Pareto or LevelSet).
+`pyto.examples_benchmarks.gradient_comparison` runs the **benchmark sweep twice**, once with each gradient method. It covers every sweep problem where analytical sensitivities apply, for MMA and OC.
 - **Each run is a complete sweep run:** the same problem, solver, iteration limit and binarization as `topopt_run_benchmarks`, with the same topology images and summary CSVs and tables. Only `to_params.Gradient` differs. So the report shows both the effect on solution time and the effect on the solution itself.
 - **Order:** for each problem, MMA with AD then analytical; after all MMA problems, OC the same way.
 - **Isolation:** every run is its own process, as in the sweep.

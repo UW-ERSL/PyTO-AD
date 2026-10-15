@@ -23,7 +23,7 @@ New here? Start with **[Installation](getting-started/installation.md)**, then t
 | [Formulations with specs](code/formulation-with-spec.md) | Describe objective, constraints and method as data (`OptimizationSpec`) |
 | [Expressions](code/expressions.md) | Write objectives and constraints as formulas; full list of quantities |
 | [User-defined functions](code/user-defined-functions.md) | Any objective or constraint as a Python (torch) function |
-| [Running the optimizers](code/running-optimizers.md) | MMA and OC (Pareto and LevelSet as secondary methods): arguments, results, callbacks |
+| [Running the optimizers](code/running-optimizers.md) | MMA and OC: arguments, results, callbacks |
 | [Gradients](code/gradients.md) | Automatic differentiation vs analytical gradients, gradient checks, cost |
 | [Thermal and thermo-structural problems](code/thermal-and-thermostructural.md) | Heat conduction and coupled problems from code |
 | [Benchmarks from code](code/benchmarks-from-code.md) | Use the 46 ready-made problems, run sweeps |

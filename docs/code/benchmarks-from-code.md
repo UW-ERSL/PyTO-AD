@@ -69,9 +69,7 @@ Results go to `Results/Results_<date>/<category>/<method>/`:
 - a summary CSV per method;
 - combined summary tables.
 
-By default the sweep runs **MMA and OC**. Pareto and LevelSet are secondary; to include them, pass them explicitly: `run_all_benchmarks_isolated(optimizationMethods=[TO_METHODS.PARETO, TO_METHODS.LEVELSET])`.
-
-The runner skips pairs a method doesn't support: OC, Pareto and LevelSet on non-compliance problems, LevelSet on body-force problems, Pareto and LevelSet on thermo-structural ones. Reading and comparing results: [Comparing results](../postprocessing/comparing-results.md).
+The sweep runs **MMA and OC**. It skips OC on the problems it doesn't support: the non-compliance problems and GravityPlate (self-weight). Reading and comparing results: [Comparing results](../postprocessing/comparing-results.md).
 
 To time automatic differentiation against analytical sensitivities on the same problems (MMA and OC, each run in its own process), use `python -m pyto.examples_benchmarks.gradient_comparison`; see [Gradients](gradients.md#comparing-the-two-on-the-benchmarks).
 

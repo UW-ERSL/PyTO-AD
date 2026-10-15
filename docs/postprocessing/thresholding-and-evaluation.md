@@ -23,7 +23,7 @@ grey design compliance 25.54 J at volume 0.300; 0/1 design 17.36 J at volume 0.3
 ```
 The 0/1 part is stiffer here, but it uses a little more material than the limit. A fixed 0.5 threshold doesn't preserve volume.
 
-**Volume-preserving threshold:** the drivers' `binarize_topology=True` sorts the densities and picks the threshold that keeps the mean density. The last history entry is then the 0/1 design's value. Pareto and LevelSet return 0/1 designs anyway.
+**Volume-preserving threshold:** the drivers' `binarize_topology=True` sorts the densities and picks the threshold that keeps the mean density. The last history entry is then the 0/1 design's value.
 
 ## When thresholding goes wrong
 Thresholding keeps the densest elements. In a mostly grey design those need not connect the loads to the supports, or the heat source to the sink. The 0/1 design is then broken and its value meaningless; for example, thermal compliance 1.1e10 instead of 1540 for a thin plate whose design was 81 % grey. Heat conduction with the default conductivity penalty of 1 is the typical case: grey material conducts well, so the design stays grey.

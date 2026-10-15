@@ -14,20 +14,17 @@ This page collects the evidence that PyTO's results and gradients are correct: c
 The images are made by `make_publication_comparison` ([Comparing results](../postprocessing/comparing-results.md#comparing-with-published-results)).
 
 ## Benchmark sweep against the reference
-The full sweep (all problems × MMA, OC, Pareto, LevelSet) was compared with a reference sweep made by an earlier version of the code, with a hand-derived-gradient MMA. Sweep of 2026-09-25:
+The full sweep (all problems × MMA and OC) was compared with a reference sweep made by an earlier version of the code, with a hand-derived-gradient MMA. Sweep of 2026-09-25:
 
 | Method | Better | Same (±1 %) | Reference better | Not comparable | New (no reference) |
 |---|---|---|---|---|---|
 | MMA (autograd) | 14 | 10 | 3 | 3 | 5 |
 | OC (autograd) | 0 | 20 | 0 | 0 | 7 |
-| Pareto | 0 | 19 | 1 | 0 | 1 |
-| LevelSet | 0 | 19 | 0 | 0 | 1 |
 
-**Of 89 problem/method pairs that succeeded in both sweeps, 82 matched or beat the reference.** The rest:
+**Of 50 problem/method pairs that succeeded in both sweeps, 44 matched or beat the reference.** The rest:
 - **Reference better by 1–6 %:**
   - LBracketTopLoad_Vol_Stress (+6.0 %);
   - TwoBar (+2.2 %);
-  - Multiload, Pareto (+1.1 %);
   - CantileverMidLoadVolumeCompliance (+1.0 %).
 - **Stopped at the iteration limit:** the four stress problems with MMA reached 150 iterations, where the reference stopped after 65–88. Three of the four still ended with better objectives.
 - **Not comparable:** the thermo-structural problems were redefined to match the papers (above), and one stress problem ended at a different volume fraction.

@@ -293,41 +293,6 @@ def test_stress_scaling_is_isolated_per_to_params():
     assert b.stress_scaling == 1.0, "stress_scaling leaked across separate TOParams instances"
 
 
-def test_pareto_compliance_value_matches_compute_compliance_torch(structural_fe_solver, structural_KE):
-    # Phase 5 completion: Pareto's driver (pyto.topopt.drivers.pareto) uses
-    # its own local, independent topological-sensitivity formulas rather
-    # than the torch-native QOI path (see that module's docstring for why
-    # this duplication exists and hasn't been consolidated). Gradient-
-    # checking topological sensitivity would test the wrong mathematical
-    # object (see plan Phase 5 completion notes) -- what CAN be checked is
-    # that the plain *compliance value* both formulas compute from the same
-    # (x, sol) agrees, since both reduce to the same u^T K(x) u sum via
-    # different code paths. This is the check that would have caught a
-    # sign/indexing slip introduced while fixing the torch/NumPy solve
-    # boundary, without claiming to validate a non-existent "gradient of T".
-    from pyto.topopt.common import FEA_MODE, TOParams, TO_QOI
-    from pyto.topopt.drivers.pareto import compute_objective_topological_sensitivity_compliance
-
-    fe = structural_fe_solver
-    x0_t = 0.5 * torch.ones(fe.mesh.num_elems, dtype=torch.float64)
-    sol_t = fe.solve(x0_t, MaterialModel.SIMP)
-    fe.postprocess()  # populates fe.strainComponents/stressComponents for T (unused here, but required by the shared code path)
-
-    sol_np = sol_t.detach().cpu().numpy()
-    x0_np = x0_t.detach().cpu().numpy()
-    KE_np = structural_KE.detach().cpu().numpy()
-
-    to_params = TOParams()
-    to_params.Objective = (TO_QOI.COMPLIANCE, None)
-    _obj, _T, compliance_pareto = compute_objective_topological_sensitivity_compliance(
-        FEA_MODE.STRUCTURAL, to_params, sol_np, x0_np, fe, KE_np, MaterialModel.SIMP
-    )
-
-    compliance_torch = compute_compliance_torch(sol_t, x0_t, fe, structural_KE, MaterialModel.SIMP).item()
-
-    assert abs(compliance_pareto - compliance_torch) / abs(compliance_torch) < 1e-8
-
-
 def test_stress_failure_factor_constraint_direction(structural_fe_solver):
     # Regression test for a sign/reciprocal bug fixed after being flagged
     # (not fixed) in Phase 4: STRESS_FAILURE_FACTOR's constraint used
@@ -368,31 +333,6 @@ def test_stress_failure_factor_constraint_direction(structural_fe_solver):
     assert abs(c_at_boundary) < 1e-8, f"expected c==0 at the boundary limit, got {c_at_boundary}"
     assert c_looser < 0, f"looser constraintLimit should satisfy the constraint, got c={c_looser}"
     assert c_tighter > 0, f"tighter constraintLimit should violate the constraint, got c={c_tighter}"
-
-
-def test_pareto_topological_sensitivity_functions_are_the_shared_module_s():
-    # Regression test for the Phase 5/7 duplication fix: pareto.py used to
-    # carry its own second, independent copy of these four functions
-    # rather than importing them from pyto.topopt.topological_sensitivity
-    # (see that module's docstring for the full history -- consolidation
-    # was deferred until mesh.edofMat became unconditionally reliable).
-    # Checking object identity (not just "behaves the same") makes sure a
-    # future edit can't silently reintroduce a second copy that drifts
-    # from this one, the same way the Phase 2 shim-transparency checks did
-    # for the flat-path compatibility shims.
-    import pyto.topopt.drivers.pareto as pareto_mod
-    import pyto.topopt.topological_sensitivity as ts_mod
-
-    for name in (
-        "compute_objective_topological_sensitivity_compliance",
-        "computeStructuralTopologicalSensitivity",
-        "compute_pnorm_stress_and_TS",
-        "computeThermalTopologicalSensitivity",
-    ):
-        assert getattr(pareto_mod, name) is getattr(ts_mod, name), (
-            f"{name} in pareto.py is not the same object as "
-            "pyto.topopt.topological_sensitivity's -- duplication reintroduced?"
-        )
 
 
 def test_stress_scaling_update_rule(structural_fe_solver):
