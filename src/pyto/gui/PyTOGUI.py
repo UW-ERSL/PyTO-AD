@@ -4667,6 +4667,8 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         J = display_objective(self.spec, history.get("objective", []))
         ax.plot(J, color="tab:blue", label="objective")
         ax.set_xlabel("iteration"); ax.set_ylabel("objective", color="tab:blue")
+        from matplotlib.ticker import MaxNLocator
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))     # iterations are whole numbers
         cons = [k for k in history if k.startswith("constraint_")]
         if cons:
             ax2 = ax.twinx()
