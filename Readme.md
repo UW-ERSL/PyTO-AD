@@ -68,8 +68,12 @@ studies read their STL files from `Models/` in the repository, so they need a cl
 
 **Updating:** `git pull` in a clone; for a pip install,
 `pip install --force-reinstall --no-deps "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"`
-([details](docs/getting-started/installation.md#updating)). CPU-only PyTorch, macOS (no PARDISO; SciPy's solver is
-used), newer `pyvista` versions and optional packages: [Installation](docs/getting-started/installation.md).
+([details](docs/getting-started/installation.md#updating)). CPU-only PyTorch, newer `pyvista` versions and optional packages:
+[Installation](docs/getting-started/installation.md).
+
+**Platforms:** tested on Linux. Windows (Intel CPU): the GUI and `main.ipynb` have been run. **macOS is untested**:
+the GUI starts on an Apple-silicon Mac with a native arm64 conda and SciPy/PyTorch from conda-forge, but loading an
+STL file does not work there yet ([macOS steps and known errors](docs/getting-started/installation.md#macos)).
 
 ## Quick start: code
 ```python

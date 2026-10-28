@@ -19,9 +19,11 @@ Both need the same [requirements](#requirements). If unsure, use A.
 - **conda** (Anaconda, Miniconda or Miniforge). The GUI launcher `run_gui.py` looks for a conda environment named
   **`PyToLib`** (set `PYTO_CONDA_ENV` to use another name).
 - **Operating system:** tested on Linux (Ubuntu, x86-64, Python 3.10.19); all results in the paper were produced
-  there. The code also targets Windows and macOS, but they are not part of the release tests.
-- **macOS:** the PARDISO solver comes from `pypardiso`, which needs Intel's MKL library; it is not installed on
-  macOS, and PyTO-AD uses SciPy's direct solver (`Solvers.SPSOLVE`) instead. See [Linear solvers](#linear-solvers).
+  there, and the test suite runs there. On Windows (Intel CPU) the GUI and `main.ipynb` have been run; Windows is
+  not part of the release tests.
+- **macOS:** untested. The installation below has been made to work on an Apple-silicon Mac and the GUI starts,
+  but loading an STL file does not work there yet, so no problem has been run on macOS. See [macOS](#macos).
+  PARDISO is not available on macOS (see [Linear solvers](#linear-solvers)).
 - **Pinned versions:** `requirements-lock.txt` lists the exact package versions of the tested environment
   (`pip install -r requirements-lock.txt`). With newer `pyvista` releases the voxel meshes differ slightly from the
   tested ones (see [Updating](#updating)).
@@ -93,6 +95,46 @@ What you get and what you don't:
 | The GUI (`pyto-gui`) | The test suite |
 
 The right-hand column reads its STL files from `Models/` in the repository, which the package does not include.
+
+## macOS
+**Status: untested.** On an Apple-silicon Mac the steps below install PyTO-AD and start the GUI (`pyto-gui`), but
+loading an STL file does not work there yet, so no optimization has been run on macOS. `main.ipynb` has not been run.
+
+What works, in this order:
+1. **Use a native Apple-silicon conda** (Miniforge for arm64). An Intel Anaconda on an Apple-silicon Mac runs every
+   environment under Rosetta, and several dependencies then fail (see the errors below). Check first:
+   ```bash
+   python -c "import platform; print(platform.machine())"     # must print arm64
+   conda info | grep platform                                  # must show osx-arm64
+   ```
+   To install Miniforge: `curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh`
+   and `bash Miniforge3-MacOSX-arm64.sh`; then reopen the terminal.
+2. **Create the environment and install PyTO-AD:**
+   ```bash
+   conda create -n pytoad python=3.10 -y
+   conda activate pytoad
+   pip install "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
+   ```
+3. **Take SciPy and PyTorch from conda-forge**, replacing pip's builds:
+   ```bash
+   pip uninstall -y scipy torch
+   conda install -c conda-forge scipy pytorch -y
+   pyto-gui
+   ```
+   pip's SciPy for Python 3.10 does not load on recent macOS, and pip's PyTorch carries its own OpenMP runtime, which
+   clashes with the one conda-forge's packages use. With both from conda-forge there is one OpenMP runtime.
+4. **For `main.ipynb`:** install a Jupyter kernel in the same environment (`conda install -c conda-forge ipykernel`)
+   and pick the `pytoad` environment as the notebook's kernel. The notebook uses SciPy's solver on macOS by itself.
+
+Errors seen on the way, and their causes:
+
+| Error | Cause | Fix |
+|---|---|---|
+| `xcrun: error: unable to load libxcrun ... need 'x86_64'` when pip runs `git` | Intel (x86_64) conda under Rosetta | arm64 conda (step 1); or `conda install git`, or install from the `.zip` URL |
+| `Failed building wheel for llvmlite` / `numba` | no Intel-Mac build of llvmlite for that Python; pip tries to compile it | arm64 conda; or `conda install -c conda-forge numba llvmlite` |
+| `A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x` (from torch) | the last Intel-Mac PyTorch is built for NumPy 1 | arm64 conda (current PyTorch) |
+| `ImportError ... _spropack ... __DATA/__thread_bss has a zero-fill section type` (from scipy) | pip's SciPy build for Python 3.10 on recent macOS | SciPy from conda-forge (step 3) |
+| `OMP: Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized` | two OpenMP runtimes: pip's PyTorch and conda-forge's | PyTorch from conda-forge (step 3); do not set `KMP_DUPLICATE_LIB_OK`, which may give wrong results |
 
 ## Updating
 **A clone (A):**
