@@ -5,7 +5,7 @@ The sweep saved images, not densities, and rerunning it would not reproduce the 
 (multithreaded round-off), so its own renders are used, in PyTO's own colours, cropped to the part (no title, no
 axis triad). Elements with density above 0.5 are drawn, as in the sweep.
 
-Run from paper/fig_gen:  python fig_sweep_galleries.py  ->  ../figures/generated/fig14_*, fig15_thermostructural
+Run from docs/paper/fig_gen:  python fig_sweep_galleries.py  ->  ../figures/generated/fig14_*, fig15_thermostructural
 """
 import os
 

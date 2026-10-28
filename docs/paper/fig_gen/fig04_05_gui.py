@@ -8,7 +8,7 @@ edited: the GUI's own colours and text.
   3D view at iteration 15 (the GUI's "Iteration 15" overlay cropped), (g) the recovered smooth STL. Crops are sized so
   the GUI's own text prints at >= 6 pt (checked in fig4).
 
-Run from paper/fig_gen:  python fig04_05_gui.py  ->  ../figures/generated/fig04_gui_formulation
+Run from docs/paper/fig_gen:  python fig04_05_gui.py  ->  ../figures/generated/fig04_gui_formulation
 """
 import os
 

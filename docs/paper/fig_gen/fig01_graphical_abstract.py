@@ -8,7 +8,7 @@ supports on the two left holes, load on the right hole, volume fraction <= 0.25,
   (d) the smooth STL recovered from it, as the GUI does it (CNN smoothing, iso-surface, Boolean); supports and
       load faces as in (a)
 
-Run from paper/fig_gen:  python fig01_graphical_abstract.py  ->  ../figures/generated/fig01_graphical_abstract.pdf
+Run from docs/paper/fig_gen:  python fig01_graphical_abstract.py  ->  ../figures/generated/fig01_graphical_abstract.pdf
 """
 import json
 import os

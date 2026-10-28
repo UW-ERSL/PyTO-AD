@@ -10,7 +10,7 @@ Supports the per-phase timing paragraph of the paper ("Where the time goes": tim
 gradient, the filter chain rule, the MMA subproblem). The paper's numbers were measured on a frozen copy of the code
 (the state used for the timing sessions); point PYTHONPATH at such a copy to repeat them, or at src for the current code.
 
-Run from the repository root (about 10 min, idle machine):  PYTHONPATH=src python paper/analysis/phase_check.py
+Run from the repository root (about 10 min, idle machine):  PYTHONPATH=src python docs/paper/analysis/phase_check.py
 Arguments (optional): cases as METHOD:Problem, e.g. MMA:EdgeCantilever OC:Bridge; PHASE_TAG=<suffix> names the output.
 Output: Results/C2_phase_check/phase_check<PHASE_TAG>.json
 """
@@ -26,7 +26,7 @@ import time
 import numpy as np
 import torch
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))       # repository root
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))       # repository root
 HERE = os.path.join(ROOT, "Results", "C2_phase_check")                              # output folder
 CASES = [("MMA", "EdgeCantilever"), ("OC", "EdgeCantilever"), ("OC", "Bridge")]
 if len(sys.argv) > 1:                          # e.g. MMA:EdgeCantilever OC:Bridge

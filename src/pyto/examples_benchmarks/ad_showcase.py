@@ -13,7 +13,7 @@ Four cases, all built from the benchmark problems (src/pyto/examples_benchmarks)
   5 EdgeCantilever        3D edge-loaded cantilever (benchmark EdgeCantilever), objective "Compliance()"
 The three L-bracket runs share one OptimizationSpec except for the objective string.
 
-The designs feed the paper's formulations figure (paper/fig_gen/fig13_formulations.py) and two cases of the
+The designs feed the paper's formulations figure (docs/paper/fig_gen/fig13_formulations.py) and two cases of the
 body-fitted re-analysis (pyto.examples_benchmarks.body_fitted_study: LBracket_stress, EdgeCantilever).
 
 Stage 1, run (optimizations; ~35 min; keep the machine free of other benchmarks):

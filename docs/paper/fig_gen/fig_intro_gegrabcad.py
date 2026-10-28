@@ -5,7 +5,7 @@ GEGrabCAD at about 300k requested DOF (run_round2_designs.py, _cache/round2_ge.n
   (b) the optimized part: the material iso-surface of the 0/1 design after the recovery's CNN smoothing. The GE STL
       is not a closed volume (2 non-manifold edges), so the Boolean step of the STL recovery is not applied.
 
-Run from paper/fig_gen:  python fig_intro_gegrabcad.py  ->  ../figures/generated/fig_intro_gegrabcad.pdf
+Run from docs/paper/fig_gen:  python fig_intro_gegrabcad.py  ->  ../figures/generated/fig_intro_gegrabcad.pdf
 """
 import json
 import os

@@ -12,9 +12,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(os.path.dirname(HERE))          # repository root (this file is in <repo>/paper/fig_gen)
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))   # repository root (this file is in <repo>/docs/paper/fig_gen)
 # Figures go to <repo>/paper/figures/generated (git-ignored); set PYTO_PAPER_FIGURES to write elsewhere.
-OUT = os.environ.get("PYTO_PAPER_FIGURES") or os.path.join(REPO, "paper", "figures", "generated")
+OUT = os.environ.get("PYTO_PAPER_FIGURES") or os.path.join(REPO, "docs", "paper", "figures", "generated")
 CACHE = os.path.join(HERE, "_cache")                  # cached optimization runs (git-ignored)
 
 TEXT_WIDTH = 5.15                    # in
@@ -43,7 +43,7 @@ INK = "#222222"
 
 
 def save(fig, name):
-    """Write <name>.pdf (vector, for the paper) and <name>.png (preview) to OUT (paper/figures/generated/ by default)."""
+    """Write <name>.pdf (vector, for the paper) and <name>.png (preview) to OUT (docs/paper/figures/generated/ by default)."""
     os.makedirs(OUT, exist_ok=True)
     for ext in ("pdf", "png"):
         fig.savefig(os.path.join(OUT, f"{name}.{ext}"), dpi=600 if ext == "png" else None)

@@ -112,7 +112,7 @@ To explore the benchmark problems, open `main.ipynb`: [Quick start: notebook](do
 | `main.ipynb` | benchmark notebook |
 | `Models/` | example STL files and projects |
 | `tests/` | automated tests |
-| `paper/` | scripts for the paper's figures and analyses ([reproducing the paper](docs/reference/reproducing-the-paper.md)) |
+| `docs/paper/` | scripts for the paper's figures and analyses ([reproducing the paper](docs/reference/reproducing-the-paper.md)) |
 
 ## Contributing
 Open an issue or a pull request. Please run the test suite before submitting ([Testing](docs/reference/testing.md)); new features come with tests ([Testing your extension](docs/extending/testing-your-extension.md)). By contributing, you agree that your contribution is licensed under GPL-3.0, like the rest of PyTO.

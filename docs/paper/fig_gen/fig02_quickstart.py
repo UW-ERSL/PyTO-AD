@@ -5,7 +5,7 @@ nDOFDesired raised from 20000 to N_DOF, so the thin members are resolved; keeps 
 recovered from each design (as the GUI does it), supports in blue, the load in red. Also records each run's time and, for the caption, the compliance of both designs and the
 share of elements that differ. Cached in _cache/quickstart_*_<N_DOF>.npz.
 
-Run from paper/fig_gen:  python fig02_quickstart.py  ->  ../figures/generated/fig02_quickstart.pdf
+Run from docs/paper/fig_gen:  python fig02_quickstart.py  ->  ../figures/generated/fig02_quickstart.pdf
 """
 import contextlib
 import io

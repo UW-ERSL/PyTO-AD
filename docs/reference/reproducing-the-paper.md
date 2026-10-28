@@ -2,7 +2,7 @@
 
 Every number, table and figure of the PyTO-AD paper comes from a script in this repository. This page lists them, with the command to run and the folder each one writes to.
 
-Results are not part of the repository. Every script writes to a folder under `Results/` (or `paper/figures/generated/` for figures), and those folders are git-ignored. Run the scripts in the order of this page when you start from an empty `Results/`: some figures read the output of earlier runs.
+Results are not part of the repository. Every script writes to a folder under `Results/` (or `docs/paper/figures/generated/` for figures), and those folders are git-ignored. Run the scripts in the order of this page when you start from an empty `Results/`: some figures read the output of earlier runs.
 
 ## Environment
 
@@ -12,7 +12,7 @@ Install the package in a fresh environment, or use the conda environment of [Ins
 pip install -e .                      # from the repository root; or: conda activate PyToLib
 ```
 
-Run every command from the repository root (except the `paper/fig_gen` scripts, see below), with:
+Run every command from the repository root (except the `docs/paper/fig_gen` scripts, see below), with:
 
 ```bash
 export PYTHONPATH=src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true
@@ -67,8 +67,8 @@ Two small analyses explain details of these runs:
 
 | What | Command | Output |
 |---|---|---|
-| Threshold tie on ThreeHoleBracketThick (two 0/1 designs from one continuous design) | `python paper/analysis/tie_check.py` | `Results/BinarizationTie/` |
-| Every step of an iteration timed separately (where the time goes; about 10 min) | `python paper/analysis/phase_check.py` | `Results/C2_phase_check/` |
+| Threshold tie on ThreeHoleBracketThick (two 0/1 designs from one continuous design) | `python docs/paper/analysis/tie_check.py` | `Results/BinarizationTie/` |
+| Every step of an iteration timed separately (where the time goes; about 10 min) | `python docs/paper/analysis/phase_check.py` | `Results/C2_phase_check/` |
 
 ## Solver scaling
 
@@ -135,17 +135,17 @@ python -m pyto.examples_benchmarks.make_paper_figures
 
 Output: `Results/PaperFigures/fig_*.pdf` and `.png`, and `figures_manifest.csv` (figure, data source, notes).
 
-## Figure scripts in `paper/fig_gen`
+## Figure scripts in `docs/paper/fig_gen`
 
-The diagrams, renders and design figures are drawn by the scripts in `paper/fig_gen`. Run them from that folder:
+The diagrams, renders and design figures are drawn by the scripts in `docs/paper/fig_gen`. Run them from that folder:
 
 ```bash
-cd paper/fig_gen
-export PYTHONPATH=../../src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true
+cd docs/paper/fig_gen
+export PYTHONPATH=../../../src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true
 python fig01_graphical_abstract.py
 ```
 
-Each script writes a PDF and a PNG to `paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). Optimization runs are cached in `paper/fig_gen/_cache/` (git-ignored). A script reruns an optimization only when its cache file is missing; delete a cache file to rerun it. The shared style is in `_style.py` and `_render.py`, and the figure conventions are in `paper/fig_gen/FIGURE_GUIDE.md`.
+Each script writes a PDF and a PNG to `docs/paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). Optimization runs are cached in `docs/paper/fig_gen/_cache/` (git-ignored). A script reruns an optimization only when its cache file is missing; delete a cache file to rerun it. The shared style is in `_style.py` and `_render.py`, and the figure conventions are in `docs/paper/fig_gen/FIGURE_GUIDE.md`.
 
 | Script | Figure | Inputs |
 |---|---|---|
@@ -163,8 +163,8 @@ Each script writes a PDF and a PNG to `paper/figures/generated/` (git-ignored; s
 The GUI session drives the real GUI on the screen for a few minutes. It needs a display (`DISPLAY` set, not off-screen) and runs at double scale:
 
 ```bash
-cd paper/fig_gen
-QT_SCALE_FACTOR=2 PYTHONPATH=../../src python gui_session_threehole.py
+cd docs/paper/fig_gen
+QT_SCALE_FACTOR=2 PYTHONPATH=../../../src python gui_session_threehole.py
 ```
 
 `--keep-recovered` records the screen captures again but keeps the recovered STL, project and logs of the earlier session.

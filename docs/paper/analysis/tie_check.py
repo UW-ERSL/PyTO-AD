@@ -13,7 +13,7 @@ physical design x is recorded just before thresholding, and the threshold rule o
 
 Supports the threshold-tie footnote of the paper (ThreeHoleBracketThick, 0/1 volume fractions 0.250000 and 0.250043).
 
-Run from the repository root:  PYTHONPATH=src MPLBACKEND=Agg python paper/analysis/tie_check.py   (a few minutes)
+Run from the repository root:  PYTHONPATH=src MPLBACKEND=Agg python docs/paper/analysis/tie_check.py   (a few minutes)
 Output: Results/BinarizationTie/tie_check.json (and x_continuous.npy).
 """
 import contextlib
@@ -24,7 +24,7 @@ import os
 import numpy as np
 import torch
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))       # repository root
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))       # repository root
 HERE = os.path.join(ROOT, "Results", "BinarizationTie")                             # output folder
 
 

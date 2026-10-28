@@ -9,7 +9,7 @@ mesh, final (0/1) density, supports and loads, the solid full-domain FE fields (
 magnitude) and the run statistics. The figures are rendered from these files by fig01_graphical_abstract.py and
 fig_sweep_galleries.py, so a re-render never re-optimizes.
 
-Run from paper/fig_gen:  python run_round2_designs.py threehole ge
+Run from docs/paper/fig_gen:  python run_round2_designs.py threehole ge
 """
 import json
 import os

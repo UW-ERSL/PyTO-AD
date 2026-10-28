@@ -16,7 +16,7 @@ Output: Results/GUISession_ThreeHole/
   session.json            iterations, objective history, captured iterations
 
 Run (opens the GUI on the screen for a few minutes):
-    cd paper/fig_gen && QT_SCALE_FACTOR=2 python gui_session_threehole.py [--setup-only | --keep-recovered]
+    cd docs/paper/fig_gen && QT_SCALE_FACTOR=2 python gui_session_threehole.py [--setup-only | --keep-recovered]
 --keep-recovered re-records the GUI captures only (e.g. after a GUI change): the session's recovered STL, project,
 density and logs are kept (the CNN smoothing is random, so a new recovery would change the verified part), the .vtu
 the GUI re-exports is restored, and the logs go to session_rerecord_log.txt / session_rerecord.json.
@@ -35,7 +35,7 @@ def log(*a):
     print(*a, file=sys.__stdout__, flush=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(os.path.dirname(HERE))
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 sys.path.insert(0, os.path.join(REPO, "src"))
 OUT = os.path.join(REPO, "Results", "GUISession_ThreeHole")
 RAW = os.path.join(OUT, "raw")

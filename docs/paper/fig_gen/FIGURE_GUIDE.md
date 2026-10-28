@@ -1,6 +1,6 @@
 # Figure guide (PyTO paper, Structural and Multidisciplinary Optimization)
 
-These rules apply to every figure made in this repository: the paper (its LaTeX source `main.tex` is kept outside this repository and includes `figures/generated/…`), the slides and the README. The figure scripts read the shared values from `paper/fig_gen/_style.py` (diagrams and renders) and from `PAPER_RC` in `src/pyto/examples_benchmarks/make_paper_figures.py` (data plots). Change a rule here, and in those two places, never in a single script.
+These rules apply to every figure made in this repository: the paper (its LaTeX source `main.tex` is kept outside this repository and includes `figures/generated/…`), the slides and the README. The figure scripts read the shared values from `docs/paper/fig_gen/_style.py` (diagrams and renders) and from `PAPER_RC` in `src/pyto/examples_benchmarks/make_paper_figures.py` (data plots). Change a rule here, and in those two places, never in a single script.
 
 ## Rules
 
@@ -28,7 +28,7 @@ These rules apply to every figure made in this repository: the paper (its LaTeX 
    - Data plots use the Okabe-Ito colours of `make_paper_figures.py`: one colour per solver, AD solid with filled markers, analytical dashed with open markers.
 5. **Output.**
    - Each script writes a vector PDF (for LaTeX) and a 600 dpi PNG (preview).
-   - `fig_gen` scripts write to `paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). The LaTeX tree links its `figures/generated` to this folder.
+   - `fig_gen` scripts write to `docs/paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). The LaTeX tree links its `figures/generated` to this folder.
    - `make_paper_figures.py` writes to `Results/PaperFigures/`. After rerunning it, copy every `fig_*.pdf/png` over the same-named files in the paper's `figures/` folder (and `docs/images/readme/` for the README copy).
 6. **Captions.**
    - The caption states what each part shows, using the texts in the table below, plus the numbers that make the figure checkable (DOF, iterations, objective values).
@@ -39,7 +39,7 @@ These rules apply to every figure made in this repository: the paper (its LaTeX 
 | Paper | File (`figures/…` in the paper) | Script | Parts: caption text for each label |
 |---|---|---|---|
 | `fig:graphical_abstract` (Fig. 1, §3; also the graphical abstract for submission) | `generated/fig01_graphical_abstract` | `fig_gen/fig01_graphical_abstract.py` (run `run_round2_designs.py threehole` once; `_cache/round2_threehole.npz`) | 2×2, 1.0\linewidth, ThreeHoleBracketThick at 211 410 DOF, one camera and one scale: (a) STL with supports (blue hole walls) and load (red hole wall, arrow); (b) von Mises stress of the solid domain on the hex mesh, colorbar 0–36 MPa (99.5th percentile, max 47.3 MPa); (c) optimized design (density > 0.5); (d) smooth recovered STL (CNN, iso-surface, Boolean) |
-| `fig:graph` | `generated/fig03_computational_graph` | dropped from the paper; its script is not part of `paper/fig_gen` | single diagram, no parts |
+| `fig:graph` | `generated/fig03_computational_graph` | dropped from the paper; its script is not part of `docs/paper/fig_gen` | single diagram, no parts |
 | `fig:gui_formulation` (the former GUI and STL-recovery figures, merged) | `generated/fig04_gui_formulation` | `fig_gen/gui_session_threehole.py` (recorded GUI session; `--keep-recovered` re-records the captures only) → `fig_gen/fig04_05_gui.py` | (a) input STL with the supports (dark, two left hole surfaces) and the 10 kN load (arrows, right hole), geometry semi-transparent; (b) Objective tab, `Compliance()`; (c) Constraints tab, `VolumeFraction() <= 0.25`; (d) gradient check before the run; (e) live objective and constraint plot up to iteration 15; (f) density in the 3D view at iteration 15; (g) recovered smooth STL. Panels in workflow order, three rows, 5.15 × 4.33 in (fits a page with its caption; include at \linewidth, never scaled); GUI text at >= 6 pt in print and height <= 5.2 in (both checked by the script) |
 | `fig:quickstart` (after Listing 2) | `generated/fig02_quickstart` | `fig_gen/fig02_quickstart.py` | ThreeHoleBracketThick (the two docs/examples scripts, PARDISO), one 3D view of the smooth recovered STL of each design: (a) `Compliance()`; (b) `Displacement(All, magnitude, pnorm)`. Supports and load on the hole walls; legend below |
 | `fig:teaching` (§7) | `generated/fig06_teaching_grid` | `fig_gen/fig06_teaching_grid.py` | single grid: rows filter radius r = 1.1, 1.5, 3 elements; columns SIMP exponent p = 1, 3, 5; tile labels c₀/₁ and grey fraction |
@@ -80,7 +80,7 @@ Rows are keyed by `\label`; figure numbers follow `main.tex`.
 
 ## Regenerating
 
-From `paper/fig_gen/`, with `PYTHONPATH=../../src`, the PyToLib environment and `PYVISTA_OFF_SCREEN=true`:
+From `docs/paper/fig_gen/`, with `PYTHONPATH=../../../src`, the PyToLib environment and `PYVISTA_OFF_SCREEN=true`:
 
 ```bash
 for f in fig01_graphical_abstract fig02_quickstart fig06_teaching_grid \
@@ -90,7 +90,7 @@ for f in fig01_graphical_abstract fig02_quickstart fig06_teaching_grid \
 
 GUI figure (`fig:gui_formulation`): `QT_SCALE_FACTOR=2 python gui_session_threehole.py` first (`--keep-recovered` re-records the captures only). It drives the real GUI on the X display (a few minutes), writes the captures, project file and logs to `Results/GUISession_ThreeHole/`; `fig04_05_gui.py` only crops and places them. GUI captures keep the GUI's own colours and text (cropped, never edited); keep the TopOpt Execute window narrow (470 logical px) so its text stays legible at print size.
 
-`fig02` and `fig06` cache their optimization runs in `paper/fig_gen/_cache/` (git-ignored); delete a cache file to rerun it.
+`fig02` and `fig06` cache their optimization runs in `docs/paper/fig_gen/_cache/` (git-ignored); delete a cache file to rerun it.
 
 From the repository root, for the data plots:
 

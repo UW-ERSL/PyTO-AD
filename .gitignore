@@ -17,9 +17,9 @@ __pycache__/
 /notes/
 c1_rest.out
 run_c1_rest.sh
-# Paper figure scripts: cached runs and generated figures stay local (paper/fig_gen and paper/analysis are tracked)
-/paper/fig_gen/_cache/
-/paper/figures/generated/
+# Paper figure scripts: cached runs and generated figures stay local (docs/paper/fig_gen and docs/paper/analysis are tracked)
+/docs/paper/fig_gen/_cache/
+/docs/paper/figures/generated/
 # Large result binaries do not belong in the repository
 *.npz
 *.npy

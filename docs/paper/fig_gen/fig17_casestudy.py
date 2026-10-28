@@ -6,7 +6,7 @@ scale, (d) voxel design (element centres), (e) recovered part (largest of the 4 
 The scale stops at 4 MPa (the voxel design peaks at 3.1 MPa); the colour bar's arrow marks higher values, which the
 recovered part reaches at a sharp edge (28.8 MPa).
 
-Run from paper/fig_gen:  python fig17_casestudy.py  ->  ../figures/generated/fig17_casestudy.pdf
+Run from docs/paper/fig_gen:  python fig17_casestudy.py  ->  ../figures/generated/fig17_casestudy.pdf
 """
 import os
 

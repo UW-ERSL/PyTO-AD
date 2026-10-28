@@ -19,7 +19,7 @@ Cases:
                       produced by pyto.examples_benchmarks.ad_showcase)
   ThreeHoleBracket    benchmark ThreeHoleBracketThick, compliance, volume 0.25 (optimized here: MMA, as the benchmark
                       sweep); supports and load on the cylindrical hole surfaces, which the hex mesh staircases
-  ThreeHoleBracketGUI the part of the recorded GUI session (paper/fig_gen/gui_session_threehole.py,
+  ThreeHoleBracketGUI the part of the recorded GUI session (docs/paper/fig_gen/gui_session_threehole.py,
                       Results/GUISession_ThreeHole): ThreeHoleBracketThick with the benchmark's supports and load on
                       the GUI's mesh (62 849 elements, mesh request 67 000 elements = nDOFDesired 201 000, the same
                       mesh as nDOFDesired 200 000 of Fig. 1). Voxel design: the GUI's continuous density

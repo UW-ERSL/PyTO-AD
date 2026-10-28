@@ -3,7 +3,7 @@
 From the showcase runs of pyto.examples_benchmarks.ad_showcase (Results/AD_Showcase/<case>/history.npz: final density, mesh, node labels, load); same
 camera for all four, supports (top face) in blue, the load in red, elements with density above 0.5 drawn.
 
-Run from paper/fig_gen:  python fig13_formulations.py  ->  ../figures/generated/fig13_formulations.pdf
+Run from docs/paper/fig_gen:  python fig13_formulations.py  ->  ../figures/generated/fig13_formulations.pdf
 """
 import os
 

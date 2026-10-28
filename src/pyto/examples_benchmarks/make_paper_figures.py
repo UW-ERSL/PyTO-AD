@@ -1,6 +1,6 @@
 """Publication figures from the recorded results (no optimization is rerun).
 
-Conventions (font, colours, part labels, captions): paper/fig_gen/FIGURE_GUIDE.md.
+Conventions (font, colours, part labels, captions): docs/paper/fig_gen/FIGURE_GUIDE.md.
 
 Every figure is a single plot (no subplots), sized for one journal column (3.5 in) so it goes into LaTeX at
 \\includegraphics[width=\\columnwidth] without rescaling; fonts are Helvetica-class sans serif (Arial, Helvetica or a
@@ -19,7 +19,7 @@ Data (all under Results/):
   GradientComparison_2026-10-18b/     AD vs analytical per iteration, 3 repeats (MMA; OC once its run is complete)
   Old/GRADIENT_COMPARISON_2026-10-15.csv  AD vs analytical totals (used for OC until the new OC run is complete)
   Results_2026-10-15/                 benchmark sweep (MMA, AD)
-  ../paper/data/benchmark_problems.csv           objective types of the sweep problems
+  ../docs/paper/data/benchmark_problems.csv           objective types of the sweep problems
 
 Run from the repository root:
     python -m pyto.examples_benchmarks.make_paper_figures
@@ -60,7 +60,7 @@ GRADCOMP_MEMORY = {"MMA": os.path.join(RESULTS, "GradientComparison_2026-10-21_m
 MEMORY_FIELDS = ("peak_rss_ad_gb", "peak_rss_an_gb", "ad_graph_gb")
 NEW_MIN_PROBLEMS = 20         # use the new comparison for a method once it has at least this many finished pairs
 SWEEP = os.path.join(RESULTS, "Results_2026-10-15")
-PROBLEM_TABLE = os.path.join("paper", "data", "benchmark_problems.csv")
+PROBLEM_TABLE = os.path.join("docs", "paper", "data", "benchmark_problems.csv")
 FD_CHECK = os.path.join(RESULTS, "GradientFD", "fd_vs_step.csv")              # gradient_fd_check.py
 PROBLEM = "EdgeCantilever"
 MACHINE_RAM_GB = 78.3

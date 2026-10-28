@@ -7,7 +7,7 @@ regions show. Each tile is labelled with
   c01    compliance of the volume-preserving 0/1 threshold of the design, evaluated with p = 3; the runs' own
          compliances use different stiffness laws (p = 1, 3, 5) and are not comparable across columns.
 
-Runs are cached in fig_gen/_cache/teaching_*.npz (delete to rerun). Run from paper/fig_gen:
+Runs are cached in fig_gen/_cache/teaching_*.npz (delete to rerun). Run from docs/paper/fig_gen:
     python fig06_teaching_grid.py          ->  ../figures/generated/fig06_teaching_grid.pdf
 """
 import contextlib
