@@ -43,6 +43,10 @@ MATERIAL_COLOR = "#90EE90"   # STL geometry and recovered (optimized) STL
 SUPPORT_COLOR = "#0072B2"    # structural supports
 LOAD_COLOR = "#B00000"       # structural force arrows and labels
 DENSITY_CMAP = LinearSegmentedColormap.from_list("pyto_density", ["white", "#3E8E3E"])
+# macOS: the native file panel, opened from a Python process started in a terminal, lists folders but does not
+# open them; Qt's own file dialog works there.
+FILE_DIALOG_OPTIONS = (QtWidgets.QFileDialog.DontUseNativeDialog if sys.platform == "darwin"
+                       else QtWidgets.QFileDialog.Options())
 #---------------------------------------------------------------------------
 def heat_flux_total(flux, triangle_areas_m2, length_units_per_m=1.0):
     """Total heat (W) of a heat flux entered per display area (W/unit^2) over STL triangles whose areas are in m^2
@@ -1208,13 +1212,12 @@ class GeometryWindow(QtWidgets.QDialog):
 
     def load_geometry(self):
         """Load STL geometry (always clears and reloads)"""
-        options = QtWidgets.QFileDialog.Options()
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Select STL File",
             "",
             "STL Files (*.stl *.STL);;All Files (*)",
-            options=options
+            options=FILE_DIALOG_OPTIONS
         )
         if file_path:
             # Clear the plotter completely
@@ -5702,7 +5705,7 @@ class DisplayOptionsWindow(QtWidgets.QDialog):
     def save_image(self):
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
             self, "Save Image", "",
-            "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+            "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)", options=FILE_DIALOG_OPTIONS
         )
         if filename:
             self.parent.plotter.screenshot(filename)
@@ -5818,7 +5821,7 @@ class ProjectsWindow(QtWidgets.QDialog):
         default_filename = f"{stl_basename}.pyto"
         
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Save Project", default_filename, "PyTO Files (*.pyto)")
+            self, "Save Project", default_filename, "PyTO Files (*.pyto)", options=FILE_DIALOG_OPTIONS)
         
         if not filename:
             return
@@ -5962,7 +5965,7 @@ class ProjectsWindow(QtWidgets.QDialog):
 
     def load_project(self):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Load Project", "", "PyTO Files (*.pyto)")
+            self, "Load Project", "", "PyTO Files (*.pyto)", options=FILE_DIALOG_OPTIONS)
         
         if not filename:
             return

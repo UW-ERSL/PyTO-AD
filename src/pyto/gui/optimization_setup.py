@@ -10,6 +10,7 @@ the 3D previews; they are applied on top of the compiled spec.
 """
 from dataclasses import dataclass, field
 
+import sys
 import numpy as np
 
 from pyto.autodiff.qoi.responses import RESPONSES, available_responses
@@ -282,7 +283,10 @@ if QtWidgets is not None:
 
         def _choose_python_file(self):
             path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Python file with fn(sol, x, fe_solver)", "",
-                                                            "Python (*.py)")
+                                                            "Python (*.py)", options=(
+                                                                QtWidgets.QFileDialog.DontUseNativeDialog
+                                                                if sys.platform == "darwin" else
+                                                                QtWidgets.QFileDialog.Options()))   # see PyTOGUI
             if path:
                 name, ok = QtWidgets.QInputDialog.getText(self, "Function name", "Function in the file:",
                                                           text="objective")
