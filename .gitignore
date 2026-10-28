@@ -25,3 +25,7 @@ run_c1_rest.sh
 *.npy
 *.vtp
 *.h5
+# pip / setuptools build output
+/build/
+/dist/
+*.egg-info/
