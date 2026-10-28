@@ -28,7 +28,7 @@ These rules apply to every figure made in this repository: the paper (its LaTeX 
    - Data plots use the Okabe-Ito colours of `make_paper_figures.py`: one colour per solver, AD solid with filled markers, analytical dashed with open markers.
 5. **Output.**
    - Each script writes a vector PDF (for LaTeX) and a 600 dpi PNG (preview).
-   - `fig_gen` scripts write to `docs/paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). In the authors' setup this folder is a link to the LaTeX tree's `figures/generated`, so the image files sit with the paper and copy with it (e.g. to Overleaf).
+   - `fig_gen` scripts write to `docs/paper/figures/generated/` (git-ignored; set `PYTO_PAPER_FIGURES` to write elsewhere). The LaTeX tree keeps its own copy in `figures/generated` (real files, so it copies to Overleaf); after regenerating a figure, copy it there too.
    - `make_paper_figures.py` writes to `Results/PaperFigures/`. After rerunning it, copy every `fig_*.pdf/png` over the same-named files in the paper's `figures/` folder (and `docs/images/readme/` for the README copy).
 6. **Captions.**
    - The caption states what each part shows, using the texts in the table below, plus the numbers that make the figure checkable (DOF, iterations, objective values).
