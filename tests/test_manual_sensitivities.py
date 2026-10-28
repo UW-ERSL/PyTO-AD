@@ -133,14 +133,6 @@ def test_mma_manual_pnorm_matches_autodiff(structural_problem):
     np.testing.assert_allclose(runs[1], runs[0], rtol=1e-6)
 
 
-def test_oc_manual_matches_autodiff(structural_problem):
-    from pyto.topopt.drivers.oc import topopt_optimality_criteria
-    runs = [_history(topopt_optimality_criteria, _new_structural(structural_problem), structural_problem[4], g,
-                     maxIterations=4)
-            for g in ("autodiff", "manual")]
-    np.testing.assert_allclose(runs[1], runs[0], rtol=1e-8)
-
-
 def _new_structural(problem):
     import pyto.autodiff.sparse_solve as torch_spsolve
     import pyto.physics.structural.hex_structural_fea as hsf
@@ -162,17 +154,21 @@ def test_gradient_method_enum_and_old_names():
 
 
 def test_gradient_comparison_benchmark_runs(tmp_path, monkeypatch):
-    """Sweep runs with AD and with analytical sensitivities (MMA then OC, each run its own process), the two sweep
-    folders in the normal layout, and the side-by-side report with both topology images."""
+    """AD and analytical runs (MMA, each its own process), measured per iteration: both follow the same
+    optimization path, the FE solve is timed in both, only AD saves an autograd graph, and the report is written."""
     from pyto.examples_benchmarks.gradient_comparison import main
-    monkeypatch.chdir(tmp_path)                                   # the sweep runner writes ./Results
+    monkeypatch.chdir(tmp_path)                                   # writes ./Results
     with contextlib.redirect_stdout(io.StringIO()):
-        rows = main(["--problems", "HeatPlate", "--max-iters", "2", "--date", "t"])
-    assert [r["method"] for r in rows] == ["DENSITYMMA", "DENSITYOCM"]
-    for r in rows:
-        assert r["objective_ad"] == pytest.approx(r["objective_an"], rel=1e-9)   # same gradient, same iterates
-        assert r["time_ad_s"] > 0 and r["time_an_s"] > 0 and r["feas_ad"] == r["feas_an"]
+        pairs = main(["--problems", "HeatPlate", "--max-iters", "3", "--tag", "t", "--max-busy", "5",
+                      "--wait-quiet", "0"])        # no waiting: the test checks the run, not its timings
+    assert [p["method"] for p in pairs] == ["MMA"]
+    for p in pairs:
+        assert p["same_path"] and p["fe_solves_ad"] == p["fe_solves_an"]
+        assert p["objective_ad"] == pytest.approx(p["objective_an"], rel=1e-9)   # same gradient, same iterates
+        assert p["s_per_iter_ad"] > 0 and p["s_per_iter_an"] > 0 and p["fe_solve_an"] > 0
+        assert p["ad_graph_gb"] > 0
+    root = tmp_path / "Results" / "GradientComparison_t"
     for g in ("AUTODIFF", "ANALYTICAL"):
-        assert (tmp_path / "Results" / f"Results_t_{g}" / "Thermal-Compliance2.5D" / "DENSITYMMA" / "HeatPlate.png").exists()
-    text = (tmp_path / "Results" / "GRADIENT_COMPARISON_t.md").read_text()
-    assert "## DENSITYMMA" in text and "## DENSITYOCM" in text and "Results_t_ANALYTICAL/" in text
+        assert (root / "runs" / "MMA" / "HeatPlate" / f"{g}_r1" / "iterations.csv").exists()
+    text = (root / "GRADIENT_COMPARISON_t.md").read_text()
+    assert "## MMA" in text and "## OC" not in text

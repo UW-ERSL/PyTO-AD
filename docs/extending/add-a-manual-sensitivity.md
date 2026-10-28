@@ -1,6 +1,6 @@
 # Add an analytical sensitivity
 
-This recipe adds a derived (hand-written) gradient for a quantity, so MMA and OC can run it with `Gradient = "manual"`. It is for developers who need speed, a reference to check autograd against, or a sensitivity for a method that can't use autograd.
+This recipe adds a derived (hand-written) gradient for a quantity, so MMA can run it with `Gradient = "manual"`. It is for developers who need speed, a reference to check autograd against, or a sensitivity for a method that can't use autograd.
 
 You don't need this to optimize a new quantity: [a response](add-a-response.md) or [a user-defined function](../code/user-defined-functions.md) is differentiated automatically. An analytical sensitivity is extra work, and it must be proven equal to autograd.
 
@@ -8,7 +8,7 @@ You don't need this to optimize a new quantity: [a response](add-a-response.md) 
 - `topopt/manual_sensitivities.py` decides **which** quantities have an analytical gradient and **evaluates** it.
 - The formulas live in `autodiff/reference_adjoint/legacy_sensitivities.py`, in NumPy.
 - MMA calls `manual_gradients(to_params, sol, x_phys, fe, material_model)`. It returns `(d_obj, d_cons)`: the gradients with respect to the **physical** density, for the objective and for each constraint in its normalized form.
-- The chain rule through the Heaviside projection and the density filter is then applied in `drivers/mma.py` (`manual_step`). OC uses the objective gradient directly.
+- The chain rule through the Heaviside projection and the density filter is then applied in `drivers/mma.py` (`manual_step`).
 
 ## Step 1: derive
 Most quantities follow the **adjoint** template. For a quantity $f(\mathbf{u}(\mathbf{x}), \mathbf{x})$ with $\mathbf{K}(\mathbf{x})\mathbf{u} = \mathbf{F}$ and a design-independent load:

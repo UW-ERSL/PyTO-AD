@@ -7,7 +7,7 @@ This page explains how to run PyTO's test suite and what each test file covers. 
 pip install -r requirements-dev.txt
 PYTHONPATH=src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true QT_QPA_PLATFORM=offscreen pytest tests -q
 ```
-- **Time:** about a minute; about 230 tests.
+- **Time:** about a minute. `pytest tests --collect-only -q` lists the tests.
 - **Environment variables:** they keep plots and Qt windows off screen.
 - **A subset:** `pytest tests/test_responses.py -q`, or `-k name` for single tests.
 - **Documentation examples:** `tests/test_docs_examples.py` runs every script in `docs/examples/`, so the docs stay correct.
@@ -23,7 +23,7 @@ PYTHONPATH=src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true QT_QPA_PLATFORM=offscreen 
 | `test_spec.py` | `OptimizationSpec`: validation, compilation, normalization, JSON round trip, progress labels |
 | `test_user_defined_qoi.py` | Python-function objectives and constraints: gradients, error messages, driver support |
 | `test_capabilities.py` | method support rules, gradient check, cost estimate |
-| `test_manual_sensitivities.py` | analytical gradients vs autograd, full MMA/OC runs both ways, `GRADIENT_METHOD`, and the AD-vs-analytical benchmark script |
+| `test_manual_sensitivities.py` | analytical gradients vs autograd, full MMA runs both ways, `GRADIENT_METHOD`, and the AD-vs-analytical benchmark script |
 | `test_drivers_smoke.py` | each driver runs a few iterations and improves the objective |
 | `test_thermoelastic.py` | thermal force, coupled solve and its gradients |
 | `test_gradient_cost.py` | timing of forward and backward (a smoke test under pytest; a benchmark as a script) |

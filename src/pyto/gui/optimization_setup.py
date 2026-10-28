@@ -69,7 +69,8 @@ def migrate_performance_options(topopt_options) -> list:
         rows.append(ConstraintSpec("StressFailureFactor()", "<=", 1.0 / float(stress["value"]), enabled=False))
     disp = perf.get("max_displacement", {})
     if isinstance(disp, dict) and disp.get("enabled") and disp.get("value"):
-        rows.append(ConstraintSpec("Displacement(All, magnitude, pnorm)", "<=", float(disp["value"]), enabled=False))
+        # the loaded nodes ("Loads"), not All: All includes the void nodes, which the optimizer would then stiffen
+        rows.append(ConstraintSpec("Displacement(Loads, magnitude, pnorm)", "<=", float(disp["value"]), enabled=False))
     temp = perf.get("max_temperature", {})
     if isinstance(temp, dict) and temp.get("enabled") and temp.get("value"):
         rows.append(ConstraintSpec("Temperature(All, pnorm)", "<=", float(temp["value"]), enabled=False))
@@ -255,7 +256,7 @@ if QtWidgets is not None:
             form.addRow("Expression", self.expression_edit)
             form.addRow("", self.python_button)
             help_label = QtWidgets.QLabel(
-                "Built-in quantities fill in the expression. Choose 'Expression...' to write your own formula from "
+                "Built-in quantities fill in the expression. Choose 'Expression...' to write your own expression from "
                 "the quantities above (autograd differentiates it; no gradient needed). Use p-norm for a smooth "
                 "maximum.")
             help_label.setWordWrap(True)

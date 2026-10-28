@@ -14,21 +14,19 @@ This page collects the evidence that PyTO's results and gradients are correct: c
 The images are made by `make_publication_comparison` ([Comparing results](../postprocessing/comparing-results.md#comparing-with-published-results)).
 
 ## Benchmark sweep against the reference
-The full sweep (all problems × MMA and OC) was compared with a reference sweep made by an earlier version of the code, with a hand-derived-gradient MMA. Sweep of 2026-09-25:
+The full sweep (all problems, MMA) was compared with a reference sweep made by an earlier version of the code, with a hand-derived-gradient MMA. Sweep of 2026-09-25:
 
 | Method | Better | Same (±1 %) | Reference better | Not comparable | New (no reference) |
 |---|---|---|---|---|---|
 | MMA (autograd) | 14 | 10 | 3 | 3 | 5 |
-| OC (autograd) | 0 | 20 | 0 | 0 | 7 |
 
-**Of 50 problem/method pairs that succeeded in both sweeps, 44 matched or beat the reference.** The rest:
+**Of 30 problems that succeeded in both sweeps, 24 matched or beat the reference.** The rest:
 - **Reference better by 1–6 %:**
   - LBracketTopLoad_Vol_Stress (+6.0 %);
   - TwoBar (+2.2 %);
   - CantileverMidLoadVolumeCompliance (+1.0 %).
 - **Stopped at the iteration limit:** the four stress problems with MMA reached 150 iterations, where the reference stopped after 65–88. Three of the four still ended with better objectives.
 - **Not comparable:** the thermo-structural problems were redefined to match the papers (above), and one stress problem ended at a different volume fraction.
-- **OC on thermo-structural problems:** it oscillates and doesn't converge. OC is therefore disabled for them in the GUI and in `method_support`.
 
 **Known open item:** the prescribed-temperature thermal problems (FourCornersThermal, BridgeThermal) differ from the reference. The reference predates a fix to the thermal compliance sign, and the comparison is still being reviewed.
 
@@ -38,7 +36,7 @@ The full sweep (all problems × MMA and OC) was compared with a reference sweep 
 | Linear-solve adjoint (`torch.autograd.gradcheck` on `SparseLinearSolve`) | passes |
 | Every built-in response vs central finite differences (`tests/test_responses.py`, `tests/test_qoi_gradients.py`) | within 1e-4 relative |
 | Analytical vs autograd gradients (`tests/test_manual_sensitivities.py`) | compliance 9e-15, p-norm stress 1.7e-14, thermo-structural compliance < 1e-6 |
-| Full MMA and OC runs, analytical vs autograd | identical iterates |
+| Full MMA runs, analytical vs autograd | identical iterates |
 | User functions and expressions vs finite differences (`check_gradient`) | typically 1e-7 to 1e-10 |
 
 ## Cost of the gradient
@@ -56,7 +54,7 @@ Measured with `tests/test_gradient_cost.py`: 25 000 requested dofs, 10 repeats, 
 - Every additional solution-dependent constraint adds about 0.26 s per iteration at this size.
 
 ## Test suite
-About 230 automated tests (`tests/`), run before every change: gradient checks, driver runs, formulation compilation, GUI logic, and headless GUI windows. See [Testing](testing.md).
+An automated test suite (`tests/`), run before every change: gradient checks, driver runs, formulation compilation, GUI logic, and headless GUI windows. See [Testing](testing.md).
 
 ---
 Next: [Troubleshooting](troubleshooting.md) · [Back to contents](../README.md)

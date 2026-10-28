@@ -1,4 +1,4 @@
-"""Smoke tests for the MMA and OC drivers: does a couple of iterations
+"""Smoke tests for the MMA driver: does a couple of iterations
 run at all, on both physics, without exceptions?
 
 The xfail cases here are not aspirational -- each one was verified to fail
@@ -14,8 +14,6 @@ import pytest
 import torch
 
 import pyto.topopt.drivers.mma as topopt_mma
-import pyto.topopt.drivers.oc as topopt_ocm
-import pyto.autodiff.material_model as material_model_module
 from pyto.topopt.common import FEA_MODE
 
 
@@ -47,67 +45,6 @@ def test_mma_thermal_runs(thermal_fe_solver, thermal_problem):
     )
     assert len(history["objective"]) >= 2
     assert np.isfinite(history["objective"][-1])
-
-
-def test_oc_structural_runs(structural_fe_solver, structural_problem):
-    # Was xfail through Phase 4 (topopt_ocm.py passed a plain NumPy x into
-    # fe_solver.solve(), which requires torch since the autodiff migration);
-    # fixed in Phase 5 by rewriting the driver to build the same
-    # x_raw (requires_grad) -> solve -> objective -> torch.autograd.grad
-    # chain topopt_mma.py already used, and by fixing 4 setPseudoDensity()
-    # call sites that also required a torch tensor (a second, previously
-    # masked bug -- see plan Phase 5).
-    _, _, _, _, to_params = structural_problem
-    sol, history, success, error_msg, n_feas = topopt_ocm.topopt_optimality_criteria(
-        fe_solver=structural_fe_solver,
-        to_params=to_params,
-        maxIterations=3,
-        print_progress=False,
-        plot_progress=False,
-    )
-    assert len(history["objective"]) >= 3
-    assert np.isfinite(history["objective"][-1])
-    assert history["objective"][-1] < history["objective"][0]
-
-
-def test_oc_use_continuation_does_not_leak_simp_penalty_state(structural_fe_solver, structural_problem):
-    # Regression test for a state-leak hazard fixed after being flagged:
-    # topopt_optimality_criteria's use_continuation=True path mutates
-    # module-global SIMP penalty state in pyto.autodiff.material_model
-    # (_SIMP_STRUCTURAL_PENALTY/_SIMP_THERMAL_PENALTY) via
-    # initialize_SIMP_*/increment_SIMP_* -- the same category of bug as
-    # stress_scaling before its Phase 4 fix (a mutable function attribute
-    # shared process-wide), just via a plain module global instead. No
-    # caller currently sets use_continuation=True (dormant, not currently
-    # reachable through any driver wrapper or the GUI), but the hazard is
-    # real the moment it is: a run using continuation would leave the
-    # global at whatever value its last ramping step reached, silently
-    # changing every *other* unrelated optimization/QOI call's SIMP
-    # penalty afterward. Fixed with a save/restore in a try/finally
-    # spanning the whole call, so the global is always restored -- on
-    # success, on early convergence, and on exception -- not just cleaned
-    # up in the (nonexistent) single unconditional exit path.
-    before_structural = material_model_module._SIMP_STRUCTURAL_PENALTY
-    before_thermal = material_model_module._SIMP_THERMAL_PENALTY
-
-    _, _, _, _, to_params = structural_problem
-    sol, history, success, error_msg, n_feas = topopt_ocm.topopt_optimality_criteria(
-        fe_solver=structural_fe_solver,
-        to_params=to_params,
-        maxIterations=25,   # enough for at least 2 continuation ramp steps (every 10 iterations)
-        use_continuation=True,
-        print_progress=False,
-        plot_progress=False,
-    )
-
-    assert material_model_module._SIMP_STRUCTURAL_PENALTY == before_structural, (
-        "SIMP structural penalty leaked out of topopt_optimality_criteria "
-        f"(was {before_structural}, now {material_model_module._SIMP_STRUCTURAL_PENALTY})"
-    )
-    assert material_model_module._SIMP_THERMAL_PENALTY == before_thermal, (
-        "SIMP thermal penalty leaked out of topopt_optimality_criteria "
-        f"(was {before_thermal}, now {material_model_module._SIMP_THERMAL_PENALTY})"
-    )
 
 
 def test_binarization_acceptable_rule():

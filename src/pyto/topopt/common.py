@@ -20,9 +20,8 @@ DIRECT_SOLVER_DOF_CUTOFF = 100000 #  dof limit for direct solver, for greater nu
 
 class TO_METHODS(enum.Enum):
 	DENSITYMMA = enum.auto()
-	DENSITYOCM = enum.auto()
 
-class GRADIENT_METHOD(enum.Enum):  # how MMA/OC get the sensitivities
+class GRADIENT_METHOD(enum.Enum):  # how MMA gets the sensitivities
 	AUTODIFF = "autodiff"      # torch autograd through the FE solve (adjoint); any objective/constraint
 	ANALYTICAL = "analytical"  # derived (adjoint) sensitivities: compliance, p-norm stress, volume fraction
 
@@ -101,7 +100,7 @@ class TOParams: # These are the default parameters
     # ObjectiveLabel = (expression, "minimize"/"maximize"), ConstraintLabels = [(expression, "<="/">=", bound), ...]
     ObjectiveLabel: tuple = None
     ConstraintLabels: list = None
-    Gradient: GRADIENT_METHOD = GRADIENT_METHOD.AUTODIFF # MMA/OC sensitivities: AUTODIFF (autograd) or ANALYTICAL
+    Gradient: GRADIENT_METHOD = GRADIENT_METHOD.AUTODIFF # MMA sensitivities: AUTODIFF (autograd) or ANALYTICAL
     # (topopt/manual_sensitivities.py: compliance, p-norm stress, volume fraction); strings are accepted too
     # Thermo-mechanical problems only (see physics/thermoelastic/thermostructural_fea.py)
     ThermalReferenceTemperature: float = 23.0 # Stress-free temperature of the structure

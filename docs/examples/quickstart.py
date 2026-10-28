@@ -1,40 +1,58 @@
-"""Quick start: optimize a benchmark cantilever for stiffness at 30 % volume and save the result.
+"""Quick start: the three-hole bracket (an STL part), stiffest at 25 % vol.
+
+The objective and the constraint are expressions; check_gradient compares
+their gradients with finite differences before the run.
+docs/examples/quickstart_displacement.py is the same script with a different
+objective.
 
 Run from the repository root:  python docs/examples/quickstart.py
 """
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "..", "src"))
 
 import pyvista
-pyvista.OFF_SCREEN = True                      # save images instead of opening windows
+pyvista.OFF_SCREEN = True          # save images instead of opening windows
 
-import pyto.autodiff.sparse_solve as sparse_solve
-from pyto.examples_benchmarks.topopt_structural_benchmarks import StructuralTOExamples, getStructuralTOProblem
+from pyto.autodiff.sparse_solve import Solvers
+from pyto.examples_benchmarks.topopt_structural_benchmarks import (
+    StructuralTOExamples, getStructuralTOProblem)
 from pyto.physics.structural.hex_structural_fea import HexStructuralFEA
-from pyto.topopt.common import TO_QOI
+from pyto.topopt.capabilities import check_gradient
 from pyto.topopt.drivers.mma import topopt_mma
+from pyto.topopt.spec import (ConstraintSpec, ManufacturingSpec,
+                              ObjectiveSpec, OptimizationSpec, compile_spec)
 
-# 1. A ready-made problem: mesh, material, supports/loads, default optimization settings
-mesh, material, bc, body_force, to_params = getStructuralTOProblem(StructuralTOExamples.CantileverTipLoad,
-                                                                   nDOFDesired=5000)
+# 1. Problem: the bracket STL, voxelized; two holes fixed, load on the third
+mesh, material, bc, body_force, to_params = getStructuralTOProblem(
+    StructuralTOExamples.ThreeHoleBracketThick, nDOFDesired=20000)
 
-# 2. The FE solver (SPSOLVE works everywhere; PARDISO is faster where installed)
-fe = HexStructuralFEA(mesh=mesh, mat_prop=material, bc=bc, solver=sparse_solve.Solvers.SPSOLVE,
-                      elem_body_force=body_force)
+# 2. Finite element analysis with the PARDISO direct solver
+#    (use Solvers.SPSOLVE where PARDISO is missing)
+fe = HexStructuralFEA(mesh=mesh, mat_prop=material, bc=bc,
+                      solver=Solvers.PARDISO, elem_body_force=body_force)
 
-# 3. What to optimize: minimum compliance (maximum stiffness) with at most 30 % material
-to_params.Objective = (TO_QOI.COMPLIANCE, None)
-to_params.Constraints = [(TO_QOI.VOLUME_FRACTION, None, 0.3)]
+# 3. Formulation: minimize compliance with at most 25 % of the material,
+#    symmetric about the mid-plane (z)
+spec = OptimizationSpec(
+    objective=ObjectiveSpec("Compliance()"),
+    constraints=[ConstraintSpec("VolumeFraction()", "<=", 0.25)],
+    manufacturing=ManufacturingSpec(symmetry=["Z"]))
+to_params = compile_spec(spec, base=to_params)
 
-# 4. Optimize with MMA (gradients by automatic differentiation)
-u, history, success, message, n_fea = topopt_mma(fe, to_params=to_params, maxMMAIterations=30,
-                                                 print_progress=False)
-print(f"compliance {history['objective'][-1]:.4g} J, volume fraction {history['volfrac'][-1]:.3f}, "
-      f"{n_fea} FE solves, {message}")
+# 4. Check the gradients, then optimize with MMA
+#    (gradients by automatic differentiation)
+for r in check_gradient(to_params, fe):
+    print(f"gradient check {r.name}: relative error {r.max_rel_error:.1e}")
+u, history, success, message, n_fea = topopt_mma(
+    fe, to_params=to_params, maxMMAIterations=to_params.MaxIterations,
+    print_progress=False)
+print(f"compliance {history['objective'][-1]:.4g} J, "
+      f"volume {history['volfrac'][-1]:.3f}, {n_fea} FE solves")
 
-# 5. Save a picture of the design (the density is stored on the mesh)
+# 5. Save a picture of the design
 out = os.path.join(os.getcwd(), "quickstart_topology.png")
-fe.plot_mesh(save_path=out, plot_bc=None, title=None, camera_position="xy")
+fe.plot_mesh(save_path=out, plot_bc=None, title=None)
 print("saved", out)

@@ -1976,7 +1976,7 @@ def createGEGrabCADProblem(nDOFDesired: int = 50000, axialLoad = 10000):
   mesh.createMeshFromSTLFile(stl_file, nElemsDesired=nElemsDesired)
   mesh.createEdofMatStructural()
 
-  fixedTri = list(range(3245, 3533 + 1))
+  fixedTri = list(range(3245, 3533))   # the two bolt-hole walls (as Models/GEGrabCad/GEGrabCAD.pyto); 3533 is the flange's end face
   fixed_nodes = mesh.get_nodes_on_triangles(fixedTri)
   mesh.node_indices[fixed_nodes, 3] = 1 # for plotting
   fixed_dofs = np.array([3 * fixed_nodes,

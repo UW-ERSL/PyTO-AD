@@ -1,6 +1,6 @@
 """Computational cost of the autograd gradient: forward, forward + backward, and backward = the difference.
 
-What is timed is the chain the MMA/OC drivers differentiate every iteration:
+What is timed is the chain the MMA driver differentiates every iteration:
     x -> density filter -> FE solve(s) -> objective      (forward, with the autograd graph built)
     torch.autograd.grad(objective, x)                     (backward: adjoint solve(s) + chain rule)
 

@@ -5,8 +5,8 @@ library, the method and its settings, filtering, manufacturing options and named
 into the TOParams the drivers already understand, choosing for each part
 
   * the built-in QOI type when the expression is exactly a built-in quantity (Compliance(), VolumeFraction(), Mass(),
-    StressPNorm(), and the stress constraints MaxStress() / StressFailureFactor()), so OC stays
-    available for classical problems and benchmarks keep their tested behaviour;
+    StressPNorm(), and the stress constraints MaxStress() / StressFailureFactor()), so classical problems and the
+    benchmarks keep their tested behaviour;
   * otherwise a TO_QOI.GFUNCTION built by the expression compiler, differentiated by autograd (MMA).
 
 validate() reports problems before a run as a list of Issue(level, message).
@@ -22,7 +22,7 @@ from pyto.autodiff.qoi.responses import RESPONSES
 from pyto.topopt.expressions import ExpressionError, compile_expression
 
 SPEC_VERSION = 1
-METHODS = ("MMA", "OC")
+METHODS = ("MMA",)          # the optimizer; OC was removed (its driver stays in the source tree, unused)
 
 # Expressions that map exactly onto a built-in QOI (spaces ignored).
 _NATIVE_OBJECTIVES = {"Compliance()": TO_QOI.COMPLIANCE, "VolumeFraction()": TO_QOI.VOLUME_FRACTION,
@@ -94,7 +94,7 @@ class MethodSpec:
     name: str = "MMA"
     max_iterations: int = 150
     move_limit: float = 0.2
-    gradient: str = "autodiff"                   # "autodiff" or "analytical" (MMA/OC only; old name "manual")
+    gradient: str = "autodiff"                   # "autodiff" or "analytical" (old name "manual")
 
 
 @dataclass

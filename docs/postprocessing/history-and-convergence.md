@@ -12,7 +12,6 @@ Every driver returns `history`: a dict of lists with one entry per iteration.
 | `objective` | the objective value in physical units (J, m, Pa, ...). For `maximize f` it holds the minimized −f; the GUI shows +f |
 | `volfrac` | mean physical density |
 | `constraint_1`, `constraint_2`, ... | MMA: each constraint in its normalized form, **≤ 0 means satisfied** |
-| `change` | OC: the largest density change per iteration |
 
 For MMA, the **last entry** is the delivered design, evaluated once more after optional binarization. The entry before it is the last continuous iterate. See [Running the optimizers](../code/running-optimizers.md#mma).
 
@@ -48,14 +47,14 @@ A typical MMA run looks like this: a fast drop in the first 10–20 iterations, 
 ## Did it work?
 - **Converged:** the objective curve is flat at the end. If it is still falling at the iteration limit, run longer.
 - **Constraints met:** every `constraint_i` is ≤ 0 at the end (a few 1e-4 is tolerance). The iteration printout says `ok` or `violated` per constraint, in the terminal or the GUI's **Iterations** tab.
-- **Oscillation:** alternating values mean the move limit is too large for this problem, or a design-dependent load. Lower `move_limit` (MMA) or `move` (OC).
+- **Oscillation:** alternating values mean the move limit is too large for this problem, or a design-dependent load. Lower `move_limit`.
 - **Jumps with Heaviside projection:** the objective jumps every time β doubles (every `HeavisideBetaInterval` iterations). That is expected.
 - **Message about returning the continuous design:** the final 0/1 thresholding would have cut load or heat paths, so the grey design was kept. See [Thresholding and evaluation](thresholding-and-evaluation.md#when-thresholding-goes-wrong).
 - **`message`:** `"No errors."`, or for example a warning that a stress limit is exceeded by the final design.
 
 ## Watching live
 - **GUI:** the live plot and the **Iterations** tab in TopOpt Execute.
-- **Code:** pass `iteration_callback=fn`; `fn(history)` is called after each iteration (MMA, OC). See [Running the optimizers](../code/running-optimizers.md#callbacks-live-monitoring).
+- **Code:** pass `iteration_callback=fn`; `fn(history)` is called after each iteration. See [Running the optimizers](../code/running-optimizers.md#callbacks-live-monitoring).
 
 ---
 Next: [Fields and plots](fields-and-plots.md) · [Back to contents](../README.md)

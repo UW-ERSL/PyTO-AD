@@ -47,9 +47,27 @@ class CNN3D(nn.Module):
         x = self.decoder(x)
         return x
     
-def extract_isosurface_cnn(vtu, isovalue=0.5):
-    print("Starting Direct 3D CNN extraction with PADDING...")
-    
+SMOOTHING_METHODS = ("cnn", "gaussian")    # STL recovery: how the voxel density is smoothed before the isosurface
+DEFAULT_SMOOTHING = "cnn"
+DEFAULT_GAUSSIAN_SIGMA = 0.5               # Gaussian width, grid spacings; wider erodes thin members (Results/SmoothingComparison)
+
+
+def extract_isosurface(vtu, isovalue=0.5, method=DEFAULT_SMOOTHING, sigma=DEFAULT_GAUSSIAN_SIGMA):
+    """Void isosurface of the design for STL recovery, after smoothing the density by `method`:
+      'cnn'       a small 3D convolutional autoencoder fitted to this density (stops at MSE 2e-4 or 400 epochs);
+                  its imperfect reconstruction is the smoothed field
+      'gaussian'  a Gaussian filter of width `sigma` grid spacings (scipy.ndimage), deterministic
+    Both share the grid preparation (_void_field) and the marching cubes at `isovalue`."""
+    if method == "cnn":
+        return extract_isosurface_cnn(vtu, isovalue)
+    if method == "gaussian":
+        return extract_isosurface_gaussian(vtu, isovalue, sigma)
+    raise ValueError(f"unknown smoothing method {method!r}; choose one of {SMOOTHING_METHODS}")
+
+
+def _void_field(vtu):
+    """The density on the full regular grid of the mesh nodes, padded and inverted (1 = void, 0 = material).
+    Returns (field, origin, spacing) of the padded grid."""
     # --- STEP 1: DETECT GRID DIMENSIONS ---
     x_coords = np.unique(vtu.points[:, 0])
     y_coords = np.unique(vtu.points[:, 1])
@@ -89,8 +107,10 @@ def extract_isosurface_cnn(vtu, isovalue=0.5):
         grid = grid.sample(vtu)
         
         grid_density = grid.point_data["density"]
-        # Fill NaNs (points outside the mesh) with 0.0 (Void) (Iwant to optimize this step!!)
-        grid_density = np.nan_to_num(grid_density, nan=0.0)
+        # Points outside the mesh (holes and cut-outs of a non-box design domain) count as material, like the padding
+        # below: as void they put a void surface on the domain's own boundary, and subtracting it from the domain STL
+        # cut slivers off the part and split it into several bodies.
+        grid_density = np.nan_to_num(grid_density, nan=1.0)
         
         # Reshape
         grid_density = grid_density.reshape((nx, ny, nz), order='F')
@@ -109,7 +129,29 @@ def extract_isosurface_cnn(vtu, isovalue=0.5):
     # (If not, normalize first)
     padded_density = (padded_density - padded_density.min()) / (padded_density.max() - padded_density.min() + 1e-12)
     padded_density = 1.0 - padded_density # Invert: 1=Void, 0=Material (Padding becomes 0)
-    
+    # Origin of the padded grid: shifted back by one spacing unit
+    return padded_density, (x_coords[0] - dx, y_coords[0] - dy, z_coords[0] - dz), (dx, dy, dz)
+
+
+def _contour(field, origin, spacing, isovalue):
+    grid = pv.ImageData(dimensions=field.shape, spacing=spacing, origin=origin)
+    grid.point_data["smoothed"] = np.asarray(field, dtype=float).flatten(order='F')
+    return grid.contour([isovalue], scalars="smoothed", method='marching_cubes')
+
+
+def extract_isosurface_gaussian(vtu, isovalue=0.5, sigma=DEFAULT_GAUSSIAN_SIGMA):
+    from scipy.ndimage import gaussian_filter
+    padded_density, origin, spacing = _void_field(vtu)
+    # Smooth the grid without its padding layer, extending the field by its edge values (mode='nearest'): blurring the
+    # padding (material) into a thin design shrank the voids that reach the domain faces, e.g. through the
+    # thickness of a 2.5D design. Then put the padding back.
+    inner = gaussian_filter(padded_density[1:-1, 1:-1, 1:-1], sigma=sigma, mode='nearest')
+    return _contour(np.pad(inner, 1, constant_values=0.0), origin, spacing, isovalue)
+
+
+def extract_isosurface_cnn(vtu, isovalue=0.5):
+    print("Starting Direct 3D CNN extraction with PADDING...")
+    padded_density, origin, spacing = _void_field(vtu)
     input_tensor = torch.tensor(padded_density).float().unsqueeze(0).unsqueeze(0)
 
     # --- STEP 3: TRAIN CNN ---
@@ -133,19 +175,8 @@ def extract_isosurface_cnn(vtu, isovalue=0.5):
     # --- STEP 4: INFERENCE ---
     model.eval()
     with torch.no_grad():
-        smoothed = model(input_tensor).cpu().numpy().flatten(order='F')
-
-    # Create Padded PyVista Grid
-    # Origin must be shifted back by one spacing unit
-    origin = (x_coords[0] - dx, y_coords[0] - dy, z_coords[0] - dz)
-    
-    grid = pv.ImageData(dimensions=(pnx, pny, pnz), 
-                        spacing=(dx, dy, dz),
-                        origin=origin)
-    
-    grid.point_data["cnn_density"] = smoothed
-    
-    return grid.contour([isovalue], scalars="cnn_density", method='marching_cubes')
+        smoothed = model(input_tensor).cpu().numpy()[0, 0]
+    return _contour(smoothed, origin, spacing, isovalue)
 
 def visualize(original_stl, other_surface,other_surface_label="Void Isosurface"):
     p = pv.Plotter()
@@ -174,15 +205,38 @@ def subtract_voids_from_stl(stl, void_surface):
     
     # Do boolean subtraction (STL - voids)
     result_tm = trimesh.boolean.difference([tm_base, tm_void])
+    if result_tm is not None and result_tm.faces.shape[0] > 0:
+        # Where a void surface grazes a domain face the Boolean leaves sliver triangles with edges ~1e-6 of the model
+        # size. Saved as STL (float32) or merged, they collapse and the part becomes non-manifold, which TetGen
+        # refuses. Merge vertices closer than 1e-5 of the model size and drop the collapsed triangles.
+        tol = 1e-5 * float(np.linalg.norm(result_tm.bounds[1] - result_tm.bounds[0]))
+        merged = pv.PolyData(result_tm.vertices, faces=np.hstack(
+            [np.full((len(result_tm.faces), 1), 3), result_tm.faces])).clean(tolerance=tol, absolute=True)
+        f = merged.faces.reshape(-1, 4)[:, 1:]
+        f = f[(f[:, 0] != f[:, 1]) & (f[:, 1] != f[:, 2]) & (f[:, 0] != f[:, 2])]
+        cleaned = trimesh.Trimesh(np.asarray(merged.points), f)
+        cleaned.update_faces(cleaned.unique_faces())
+        cleaned.remove_unreferenced_vertices()
+        if cleaned.is_watertight:
+            result_tm = cleaned
     if result_tm is None or result_tm.faces.shape[0] == 0:
-         print("Boolean subtraction failed, returning original STL.")
-         result_pv = stl
-    else:
-         result_pv = pv.PolyData(result_tm.vertices, faces=np.hstack(
-             [np.full((len(result_tm.faces), 1), 3), result_tm.faces]
-         ))
+        # Used to print a message and return the input STL unchanged, which the GUI then saved as the "optimized"
+        # part. An empty result (e.g. the voids cover the whole domain) is a failure, not a part.
+        raise RecoveryError("STL recovery failed: the Boolean subtraction returned an empty part.")
+    return pv.PolyData(result_tm.vertices, faces=np.hstack([np.full((len(result_tm.faces), 1), 3), result_tm.faces]))
 
-    return result_pv
+
+class RecoveryError(RuntimeError):
+    """STL recovery produced no usable part (empty Boolean result)."""
+
+
+def recovered_volume_check(part, voxel_volume, rel_tol=0.3):
+    """(ok, ratio): the recovered part's volume against the voxel design's (elements with density >= 0.5).
+    A ratio outside 1 +- rel_tol means the recovery removed or kept far more than the design (a wrong iso-level,
+    a domain STL that does not match the mesh, a void surface that leaked); the part should not be used unchecked."""
+    vol = float(abs(to_trimesh(part).volume))
+    ratio = vol / voxel_volume if voxel_volume > 0 else float("inf")
+    return abs(ratio - 1.0) <= rel_tol, ratio
 
 if __name__ == "__main__":
 

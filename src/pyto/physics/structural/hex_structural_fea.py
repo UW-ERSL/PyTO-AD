@@ -171,6 +171,12 @@ class HexStructuralFEA:
           stresses are computed from the elastic strain (total - thermal).
       """
 
+      # Drop the previous solve's results first. On the AD path they reference its graph, whose solve node holds
+      # that solve's factorization, so keeping them until the new solve finished held two factorizations at the
+      # memory peak.
+      self.sol = self.deformation = self.stiff_mtrx = self.total_force = self.elem_thermal_strain = None
+      self._last_solve = {}
+
       if x is None:
           x = torch.ones(self.mesh.num_elems, dtype=torch.float64)
       self.x = x

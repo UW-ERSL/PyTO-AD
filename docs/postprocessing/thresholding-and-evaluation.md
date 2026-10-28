@@ -3,7 +3,7 @@
 This page explains how to turn an optimized (partly grey) density into a clean 0/1 part, and how to report numbers that belong to that part. It is for anyone publishing results, or passing a design to CAD or manufacturing.
 
 ## Why the grey design's numbers aren't the part's numbers
-Density methods (MMA, OC) end with some intermediate densities, where the SIMP law makes grey material weak. The objective reported for that design describes the grey structure, not the part you'd build: a 0/1 version has a different compliance, volume and stress.
+Density methods such as MMA end with some intermediate densities, where the SIMP law makes grey material weak. The objective reported for that design describes the grey structure, not the part you'd build: a 0/1 version has a different compliance, volume and stress.
 
 ## Thresholding
 ```python
@@ -28,7 +28,7 @@ The 0/1 part is stiffer here, but it uses a little more material than the limit.
 ## When thresholding goes wrong
 Thresholding keeps the densest elements. In a mostly grey design those need not connect the loads to the supports, or the heat source to the sink. The 0/1 design is then broken and its value meaningless; for example, thermal compliance 1.1e10 instead of 1540 for a thin plate whose design was 81 % grey. Heat conduction with the default conductivity penalty of 1 is the typical case: grey material conducts well, so the design stays grey.
 
-**Safeguard:** MMA and OC compare the thresholded design with the last continuous one. If the 0/1 value is more than twice as bad (or, for a maximized quantity, less than half), they return the **continuous** design instead. `message` then says so, for example:
+**Safeguard:** MMA compares the thresholded design with the last continuous one. If the 0/1 value is more than twice as bad (or, for a maximized quantity, less than half), it returns the **continuous** design instead. `message` then says so, for example:
 ```
 Warning: the 0/1 (binarized) design was much worse than the continuous one (objective 1.142e+10 vs 1539;
 grey fraction 0.81), so the continuous design is returned.

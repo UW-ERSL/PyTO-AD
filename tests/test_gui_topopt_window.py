@@ -137,7 +137,7 @@ def test_optimized_design_buttons_after_completion(window_parent, tmp_path):
     parent.stl_geom.file_path = str(stl)
     try:
         for spec, structural, thermal, expected in [
-            (OptimizationSpec(method=MethodSpec("OC", 3)), True, None,            # stops at the iteration limit
+            (OptimizationSpec(method=MethodSpec("MMA", 3)), True, None,           # stops at the iteration limit
              ["Density", "Deformation", "Von Mises stress"]),
             (OptimizationSpec(objective=ObjectiveSpec("Temperature(All, pnorm)"), method=MethodSpec("MMA", 3)), False,
              {"fixed_temps": [{"triangles": parent.faces[0], "temperature": 300.0}],

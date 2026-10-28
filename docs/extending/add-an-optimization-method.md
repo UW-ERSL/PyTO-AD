@@ -1,6 +1,6 @@
 # Add an optimization method
 
-This recipe adds a new optimization algorithm (a **driver**) next to MMA and OC, or in place of one. It is for developers trying a new update rule, a different constraint handling, a population-based method, or a machine-learning approach.
+This recipe adds a new optimization algorithm (a **driver**) next to MMA, or in place of it. It is for developers trying a new update rule, a different constraint handling, a population-based method, or a machine-learning approach.
 
 ## The driver contract
 ```text
@@ -74,7 +74,7 @@ A driver works as soon as you call it from a script. To make it a first-class me
 | 1 | `topopt/common.py` | a member of `TO_METHODS`, e.g. `MYMETHOD = enum.auto()` |
 | 2 | `topopt/spec.py` | its name in `METHODS` (the GUI's Method list is built from this tuple) |
 | 3 | `topopt/capabilities.py` | its support rules in `method_support()` (which formulations and physics it handles, and why not otherwise), a line in `GRADIENT_SOURCE` |
-| 4 | `examples_benchmarks/topopt_run_benchmarks.py` | a branch in `runTOMethodOnBenchmarks` next to the MMA/OC calls (with `continue` for problems it can't run), and the enum in the default list of `run_all_benchmarks_isolated` |
+| 4 | `examples_benchmarks/topopt_run_benchmarks.py` | a branch in `runTOMethodOnBenchmarks` next to the MMA call (with `continue` for problems it can't run), and the enum in the default list of `run_all_benchmarks_isolated` |
 | 5 | `gui/PyTOGUI.py` | a branch in `StructuralTopOptWindow._run_optimization` calling your driver with the GUI's callbacks |
 | 6 | `tests/test_drivers_smoke.py` | a test: a few iterations on the structural fixture run and lower the objective |
 
@@ -82,9 +82,9 @@ A driver works as soon as you call it from a script. To make it a first-class me
 To use your algorithm **instead of** MMA for everything, point the `MMA` branch in steps 4 and 5 at your driver. Keep MMA available under another name, so you can compare results on the benchmark sweep ([Comparing results](../postprocessing/comparing-results.md)).
 
 ## Design notes
-- **Constraints:** MMA handles any number of inequality constraints. Simpler methods can handle one volume constraint by bisection, as in the example and OC. General constraints need a penalty, an augmented Lagrangian, or a subproblem solver.
+- **Constraints:** MMA handles any number of inequality constraints. Simpler methods can handle one volume constraint by bisection, as in the example. General constraints need a penalty, an augmented Lagrangian, or a subproblem solver.
 - **Grey designs:** density methods leave intermediate densities. Use `binarize_topology`-style thresholding at the end, or a projection with continuation.
-- **Sensitivity filtering:** OC filters sensitivities (`H(x·g)/Hs/x`) rather than densities. Either choice works, but be consistent: filtered densities need the gradient chained through the filter.
+- **Sensitivity filtering:** a method may filter sensitivities (`H(x·g)/Hs/x`) rather than densities. Either choice works, but be consistent: filtered densities need the gradient chained through the filter.
 - **Stopping:** combine an iteration cap, a design-change tolerance, and an objective-change tolerance.
 
 ---

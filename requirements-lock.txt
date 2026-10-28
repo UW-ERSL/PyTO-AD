@@ -1,0 +1,23 @@
+# Exact versions of the environment PyTO was tested in (Linux x86-64, Python 3.10.19, conda env PyToLib),
+# generated from that environment on 2026-10-22. requirements.txt lists the same packages without pins.
+# torch is the CPU build (install it from https://download.pytorch.org/whl/cpu to get the same build).
+numpy==2.2.6
+scipy==1.15.3
+matplotlib==3.10.7
+pillow==12.0.0
+pandas==2.3.3
+torch==2.13.0+cpu
+pypardiso==0.4.6; sys_platform != "darwin"
+pyamg==5.3.0
+numba==0.62.1
+mmapy==0.3.1
+numpy-stl==3.2.0
+trimesh==4.9.0
+manifold3d==3.2.1
+tetgen==0.6.7
+pyvista==0.46.3
+vtk==9.5.2
+PyQt5==5.15.11
+pyvistaqt==0.11.3
+ipykernel==7.1.0
+pytest==9.1.1

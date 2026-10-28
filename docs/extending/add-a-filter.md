@@ -14,7 +14,6 @@ How each method uses `H`:
 | Method | Use of `H` | Gradient through the filter |
 |---|---|---|
 | MMA | **density filter**: `x_phys = H x / Hs` | autograd (or the analytical chain rule `Hᵀ(g / Hs)`), automatic |
-| OC | **sensitivity filter** on `x · dC/dx` | inside the OC update |
 
 A new linear filter therefore needs **no gradient code** for any method.
 
@@ -70,7 +69,7 @@ With 4 cells on a simply supported 3 × 0.5 m beam (60 × 10 elements, 40 % mate
 
 ![Periodic beam](../images/filter-periodic-beam.png)
 
-The complete script, which plugs the filter in at run time without editing the source, is [`docs/examples/custom_filter.py`](../examples/custom_filter.py). It wraps `pyto.topopt.drivers._shared.createFilters`; that path reaches MMA and OC only.
+The complete script, which plugs the filter in at run time without editing the source, is [`docs/examples/custom_filter.py`](../examples/custom_filter.py). It wraps `pyto.topopt.drivers._shared.createFilters`; that path reaches MMA.
 
 ## Nonlinear filters and projections
 A projection, like the smooth Heaviside step, can't be a matrix. It is applied after the linear filter:

@@ -5,17 +5,17 @@ This page sets up a Python environment for PyTO and checks that it works. It is 
 ## Requirements
 - **Python 3.10.** Other versions may work but are not tested.
 - **conda** (Anaconda, Miniconda or Miniforge). The GUI launcher looks for a conda environment named **`PyToLib`**.
-- **Operating system:** Linux, Windows or macOS. On macOS the PARDISO solver is not available, and PyTO uses SciPy's solver instead.
+- **Operating system:** tested on Linux (Ubuntu, x86-64, Python 3.10.19); all results in the paper were produced there. The code also targets Windows and macOS, but they are not part of the release tests. On macOS the PARDISO solver is not available, and PyTO uses SciPy's solver instead.
+- **Pinned versions:** `requirements-lock.txt` lists the exact package versions of the tested environment (`pip install -r requirements-lock.txt`).
 - **Memory:** a few GB for problems up to about 100 000 degrees of freedom.
 
 ## Steps
 
 1. Get the code:
    ```bash
-   git clone https://github.com/UW-ERSL/PyTO
-   cd PyTO
+   git clone https://github.com/UW-ERSL/PyTO-AD
+   cd PyTO-AD
    ```
-   To use a branch other than `main` (for example `AutoPyTO`), run `git checkout AutoPyTO` after cloning.
 
 2. Create and activate the environment:
    ```bash

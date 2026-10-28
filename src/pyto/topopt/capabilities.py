@@ -17,7 +17,6 @@ from pyto.topopt.expressions import compile_expression
 
 GRADIENT_SOURCE = {
     "MMA": "Automatic differentiation: PyTorch autograd through the FE solve (adjoint), any objective/constraint",
-    "OC": "Automatic differentiation: PyTorch autograd (compliance with a volume constraint only)",
 }
 
 
@@ -30,7 +29,7 @@ def gradient_source(method: str, gradient: str = "autodiff") -> str:
 
 
 def manual_gradient_support(spec: OptimizationSpec, selections: dict = None, body_force: bool = False) -> tuple:
-    """(True, "") if MMA/OC can use analytical gradients for this formulation, else (False, reason).
+    """(True, "") if MMA can use analytical gradients for this formulation, else (False, reason).
 
     The solver-dependent limits (per-problem conductivity laws, prescribed values together with loads) are checked
     again at run time by manual_sensitivities.manual_support."""
@@ -49,34 +48,13 @@ def manual_gradient_support(spec: OptimizationSpec, selections: dict = None, bod
     return ok, reason
 
 
-def _is_classical(spec: OptimizationSpec) -> bool:
-    """Minimize compliance subject to exactly one volume-fraction upper bound."""
-    cons = spec.active_constraints
-    return (spec.objective.sense == "minimize" and _key(spec.objective.expression) == "Compliance()"
-            and len(cons) == 1 and _key(cons[0].expression) == "VolumeFraction()" and cons[0].op == "<="
-            and cons[0].bound > 0)
-
-
 def method_support(spec: OptimizationSpec, physics: str, body_force: bool = False) -> dict:
     """{method: (supported, reason)} for a formulation.
 
     physics: 'structural', 'thermal' or 'thermo-structural'; body_force: a design-dependent (self-weight) load is
-    applied. MMA solves every formulation. OC only minimizes compliance with one volume constraint, and is not
-    used for thermo-structural problems (the thermally loaded compliance is not monotone and OC 2-cycles) or with
-    design-dependent body forces (it collapses on self-weight).
+    applied. MMA, the one optimizer, solves every formulation.
     """
-    out = {"MMA": (True, "")}
-    if not _is_classical(spec):
-        out["OC"] = (False, "OC supports only minimize Compliance() with a single 'VolumeFraction() <= bound' "
-                            "constraint; use MMA.")
-    elif physics == "thermo-structural":
-        out["OC"] = (False, "OC is not available for thermo-structural problems (the thermally loaded compliance is "
-                            "not monotone and OC 2-cycles); use MMA.")
-    elif body_force:
-        out["OC"] = (False, "OC does not handle design-dependent body forces (self-weight); use MMA.")
-    else:
-        out["OC"] = (True, "")
-    return out
+    return {"MMA": (True, "")}
 
 def solution_dependent_count(spec: OptimizationSpec, selections: dict = None) -> int:
     """Number of objective/constraint functions whose gradient needs an adjoint solve (volume and mass do not)."""
@@ -113,17 +91,30 @@ class GradientCheck:
 
 
 def check_gradient(to_params, fe_solver, n_elements: int = 5, rel_step: float = 1e-4, tol: float = 1e-3,
-                   seed: int = 0) -> list:
+                   seed: int = 0, through_filter: bool = True) -> list:
     """Compare the gradients of the objective and every constraint (autograd, or the analytical ones when
     to_params.Gradient is GRADIENT_METHOD.ANALYTICAL) with central finite differences.
 
     Evaluated at a random interior design (0.3..0.9) on n_elements random elements, with the same material law the
-    MMA driver uses. The adaptive stress normalization (to_params.stress_scaling) is reset before every evaluation so
-    the finite differences see the same function as autograd. Returns one GradientCheck per function.
+    MMA driver uses. With through_filter (default), the design is MMA's own variable: it passes through the same
+    density filter (with symmetry and extrusion) and, if on, the Heaviside projection at beta = 1 (the start of the
+    driver's continuation) before the solve, so the check covers the whole chain MMA differentiates. With
+    through_filter=False the physical density is perturbed directly. The adaptive stress normalization
+    (to_params.stress_scaling) is reset before every evaluation so the finite differences see the same function as
+    autograd. Returns one GradientCheck per function.
     """
     from pyto.autodiff.qoi import compute_constraint_and_gradient, compute_objective_and_gradient
-    from pyto.topopt.drivers._shared import compute_element_stiffness
+    from pyto.topopt.drivers._shared import (compute_element_stiffness, createFilters, heaviside_projection,
+                                             torch_sparse_filter)
     KE = torch.tensor(compute_element_stiffness(fe_solver))
+    chain = lambda z: z                                   # design variable -> physical density
+    if through_filter and to_params.APPLY_FILTER_TO_DENSITY:
+        H, Hs = torch_sparse_filter(*createFilters(fe_solver, to_params))
+        project = bool(to_params.HeavisideProjection)
+
+        def chain(z):
+            zf = torch.sparse.mm(H, z.unsqueeze(1)).squeeze(1) / Hs
+            return heaviside_projection(zf, 1.0) if project else zf     # beta = 1, the driver's first iterations
     mm = MaterialModel.SIMP
     rng = np.random.default_rng(seed)
     x0 = torch.tensor(0.3 + 0.6 * rng.random(fe_solver.mesh.num_elems), dtype=torch.float64)
@@ -133,9 +124,10 @@ def check_gradient(to_params, fe_solver, n_elements: int = 5, rel_step: float = 
 
     def values(x):
         to_params.stress_scaling = scaling0
-        sol = last["sol"] = fe_solver.solve(x, mm)
-        obj = compute_objective_and_gradient(to_params, sol, x, fe_solver, KE, mm)
-        cons, _ = compute_constraint_and_gradient(to_params, sol, x, fe_solver, KE, mm)
+        xp = last["x_phys"] = chain(x)
+        sol = last["sol"] = fe_solver.solve(xp, mm)
+        obj = compute_objective_and_gradient(to_params, sol, xp, fe_solver, KE, mm)
+        cons, _ = compute_constraint_and_gradient(to_params, sol, xp, fe_solver, KE, mm)
         return [obj.reshape(())] + [c.reshape(()) for c in cons.reshape(-1)]
 
     try:
@@ -143,8 +135,11 @@ def check_gradient(to_params, fe_solver, n_elements: int = 5, rel_step: float = 
             from pyto.topopt.manual_sensitivities import manual_gradients
             with torch.no_grad():
                 vals = values(x0.clone())
-            d_obj, d_cons = manual_gradients(to_params, last["sol"], x0, fe_solver, mm)
-            ad = [torch.as_tensor(g) for g in [d_obj] + list(d_cons)]
+            d_obj, d_cons = manual_gradients(to_params, last["sol"], last["x_phys"], fe_solver, mm)
+            xr = x0.clone().requires_grad_(True)                   # chain d/dx_phys back to the design variable
+            xp = chain(xr)
+            ad = [torch.autograd.grad(xp, xr, grad_outputs=torch.as_tensor(g, dtype=xp.dtype), retain_graph=True)[0]
+                  if xp.requires_grad else torch.as_tensor(g) for g in [d_obj] + list(d_cons)]
         else:
             x = x0.clone().requires_grad_(True)
             vals = values(x)

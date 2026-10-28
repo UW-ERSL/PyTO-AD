@@ -97,6 +97,14 @@ def setup_driver_state(fe_solver, to_params, log_message=None):
     }
 
 
+def heaviside_projection(x_f, beta, eta=0.5):
+    """Smooth Heaviside projection of the filtered density (Ooms et al. 2023, eq. 33), differentiable by autograd.
+    Shared by the MMA driver and check_gradient, so the gradient check covers the code the driver runs."""
+    import math
+    import torch
+    return (math.tanh(beta * eta) + torch.tanh(beta * (x_f - eta))) / (math.tanh(beta * eta) + math.tanh(beta * (1.0 - eta)))
+
+
 def torch_sparse_filter(H, Hs):
     """Convert the (constant) scipy-sparse density filter to torch, for use
     inside an autograd chain -- H @ x_raw can't be matmul'd against a

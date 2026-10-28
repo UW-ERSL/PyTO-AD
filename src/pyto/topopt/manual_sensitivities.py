@@ -1,6 +1,6 @@
-"""Analytical (derived, "manual") gradients for the MMA and OC drivers, as an alternative to automatic differentiation.
+"""Analytical (derived, "manual") gradients for the MMA driver, as an alternative to automatic differentiation.
 
-to_params.Gradient = GRADIENT_METHOD.ANALYTICAL makes MMA/OC use these instead of torch.autograd. They exist only where a derived
+to_params.Gradient = GRADIENT_METHOD.ANALYTICAL makes MMA use these instead of torch.autograd. They exist only where a derived
 sensitivity is available and verified against autograd (tests/test_manual_sensitivities.py):
 
   objective    COMPLIANCE (structural, thermal, thermo-structural), PNORM_STRESS (structural), VOLUME_FRACTION

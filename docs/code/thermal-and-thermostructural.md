@@ -42,7 +42,7 @@ Things specific to thermal problems:
 - **Conductivity law:** the conductivity of an element with density `x` follows its own SIMP-type law (penalty 1 by default). `HexThermalFEA(conductivity_penalty=..., conductivity_void_ratio=...)` overrides it per problem.
 - **Problems driven only by prescribed temperatures** (no heat input; for example hot and cold faces) are optimized for *maximum* conduction. PyTO flips the sign automatically (`compliance_sign`) and still reports the true value.
 - **Quantities:** `Compliance()` / `ThermalCompliance()`, `Temperature(sel, mean|pnorm)`, `VolumeFraction()`. See [Expressions](expressions.md).
-- **Grey designs and binarization:** with conductivity penalty 1, thermal designs stay mostly grey, and thresholding them to 0/1 can cut the conduction path (in this example, 1.1e10 instead of 1540). MMA and OC detect this and return the continuous design with a warning in `message`; the examples here pass `binarize_topology=False` to skip thresholding altogether. See [Thresholding and evaluation](../postprocessing/thresholding-and-evaluation.md#when-thresholding-goes-wrong).
+- **Grey designs and binarization:** with conductivity penalty 1, thermal designs stay mostly grey, and thresholding them to 0/1 can cut the conduction path (in this example, 1.1e10 instead of 1540). MMA detects this and returns the continuous design with a warning in `message`; the examples here pass `binarize_topology=False` to skip thresholding altogether. See [Thresholding and evaluation](../postprocessing/thresholding-and-evaluation.md#when-thresholding-goes-wrong).
 
 ## Thermo-structural problems
 `ThermoStructuralFEA` solves the temperature first. It then applies the thermal-expansion load and solves the structure. It **is** a structural solver (it subclasses `HexStructuralFEA`), so everything structural works on it; the temperature is on `fe.temperature`.
@@ -83,7 +83,6 @@ u, history, ok, message, n = topopt_mma(fe, to_params=p, maxMMAIterations=20,
 
 What is different:
 - **The thermal load depends on the design.** Material that expands also pushes on the structure. So adding material doesn't always help, and the optimizer may use **less** material than allowed, as in this example (15 % of a 40 % budget). Compliance can also rise when material is added.
-- **Methods:** use **MMA**. OC oscillates on these problems; `method_support` reports this.
 - **Stress** is computed from the *elastic* strain: total strain minus the free thermal strain α(T − T_ref).
 - **Extra quantities:**
   - `MechanicalCompliance()`: the work of the mechanical loads only, a common objective for heated structures (Ooms et al. 2023).

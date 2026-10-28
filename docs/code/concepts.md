@@ -11,7 +11,7 @@ flowchart LR
     Mesh --> FE[FE solver<br/>HexStructuralFEA / HexThermalFEA /<br/>ThermoStructuralFEA]
     BC --> FE
     Spec[OptimizationSpec<br/>or TOParams] --> Driver
-    FE --> Driver[Driver<br/>topopt_mma, OC]
+    FE --> Driver[Driver<br/>topopt_mma]
     Driver --> Result[density on the mesh,<br/>solution, history]
 ```
 
@@ -25,10 +25,10 @@ flowchart LR
 | **Response** | `pyto.autodiff.qoi.responses` | A quantity computed from the solution and the density: compliance, displacement at a selection, stress, temperature, mass, ... Objectives and constraints are built from responses. |
 | **Formulation** | `pyto.topopt.spec` / `pyto.topopt.common` | What to optimize. Either written as data (`OptimizationSpec` with expressions, compiled by `compile_spec`) or set directly on `TOParams` (`Objective`, `Constraints`). |
 | **Settings** `TOParams` | `pyto.topopt.common` | Everything the drivers read: objective, constraints, filter radius, symmetry, extrusion, Heaviside projection, iterations, gradient mode, ... |
-| **Driver** | `pyto.topopt.drivers` | The optimization method: `topopt_mma` (MMA), `topopt_optimality_criteria` (OC). |
+| **Driver** | `pyto.topopt.drivers` | The optimization method: `topopt_mma` (MMA). |
 
 ## How one optimization step works
-For the density methods (MMA, OC), each iteration does:
+For the density method (MMA), each iteration does:
 1. **Filter** the design: `x_phys = H x / Hs`. It averages each element with its neighbours within the filter radius, which prevents checkerboards and sets a minimum member size. Symmetry, extrusion and cyclic symmetry are extra filters applied the same way.
 2. **Project** (optional): a smooth Heaviside step pushes grey values toward 0 or 1.
 3. **Solve** the physics with the stiffness scaled per element by the material law (SIMP: $E(x) = E_{min} + x^p (E - E_{min})$).
@@ -36,7 +36,7 @@ For the density methods (MMA, OC), each iteration does:
 5. **Differentiate** them with respect to the design:
    - by default with PyTorch autograd, backwards through the steps above, including the linear solve (an adjoint solve);
    - or with the [analytical gradients](gradients.md) where available.
-6. **Update** the design (MMA or OC step), within a move limit.
+6. **Update** the design (MMA step), within a move limit.
 
 Because the gradient comes from autograd, any objective you can write with torch operations can be optimized, with no hand-derived sensitivity. See [Expressions](expressions.md) and [User-defined functions](user-defined-functions.md).
 

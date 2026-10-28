@@ -3,7 +3,7 @@
 This page explains how PyTO computes the gradient (sensitivity) of objectives and constraints, how to choose between automatic differentiation and analytical gradients, and how to check a gradient. It is for anyone who wants to trust, speed up or extend the optimization.
 
 ## Automatic differentiation (default)
-For MMA and OC, PyTO builds each objective and constraint as a PyTorch computation from the design `x`:
+For MMA, PyTO builds each objective and constraint as a PyTorch computation from the design `x`:
 
 filter → projection → FE solve → quantity.
 
@@ -31,7 +31,7 @@ to_params.Gradient = GRADIENT_METHOD.ANALYTICAL      # default GRADIENT_METHOD.A
 ```
 or `MethodSpec(gradient="analytical")` in a spec, or **Method → Gradient → Analytical** in the GUI. The strings `"autodiff"` and `"analytical"` are accepted too, and so is the old name `"manual"` (e.g. in saved projects); `gradient_method(value)` converts any of these to the enum.
 
-It applies to **MMA and OC**. For MMA, the analytical gradient is taken with respect to the physical density and chained back through the Heaviside projection and the density filter by hand.
+It applies to **MMA**: the analytical gradient is taken with respect to the physical density and chained back through the Heaviside projection and the density filter by hand.
 
 ### Same solver path in both modes
 Both modes run the **same forward FE solve** (same assembly, same linear solver). The analytical adjoint solve then uses that solve's matrix and solver object through `fe.adjoint_solve(rhs)`:
@@ -54,7 +54,7 @@ It's the same reuse the autograd backward pass gets, so timings compare the grad
 - **Reference:** an independent derivation to check autograd against, and a starting point for methods that need derived sensitivities.
 
 ### How they are verified
-`tests/test_manual_sensitivities.py` compares every analytical gradient with autograd. Agreement is at the 1e-14 level: 9e-15 for compliance, 1.7e-14 for p-norm stress, and below 1e-6 for thermo-structural compliance. The tests also run full MMA and OC optimizations both ways and require the same iterates. To add an analytical gradient of your own: [Add an analytical sensitivity](../extending/add-a-manual-sensitivity.md).
+`tests/test_manual_sensitivities.py` compares every analytical gradient with autograd. Agreement is at the 1e-14 level: 9e-15 for compliance, 1.7e-14 for p-norm stress, and below 1e-6 for thermo-structural compliance. The tests also run full MMA optimizations both ways and require the same iterates. To add an analytical gradient of your own: [Add an analytical sensitivity](../extending/add-a-manual-sensitivity.md).
 
 ## Checking a gradient
 ```python
@@ -65,6 +65,7 @@ for r in check_gradient(to_params, fe, n_elements=5, rel_step=1e-4, tol=1e-3):
 ```
 - It compares the gradient in use (autograd, or analytical if `to_params.Gradient` is `GRADIENT_METHOD.ANALYTICAL`) with central finite differences on `n_elements` random elements.
 - The comparison is made at a random interior design (densities 0.3–0.9).
+- It perturbs MMA's own design variables, so the finite differences pass through the same density filter (with symmetry and extrusion) and, if on, the Heaviside projection (at β = 1, where a run starts) as the optimizer's gradient. `through_filter=False` perturbs the physical density instead, which checks only the response and the solve.
 - The GUI's **Check gradient** button runs the same function.
 
 A mismatch points to one of:
@@ -88,30 +89,37 @@ PYTHONPATH=src python tests/test_gradient_cost.py --ndof 25000 --repeat 10 --sol
 Results for this repository are summarized in [Validation](../reference/validation.md).
 
 ## Comparing the two on the benchmarks
-`pyto.examples_benchmarks.gradient_comparison` runs the **benchmark sweep twice**, once with each gradient method. It covers every sweep problem where analytical sensitivities apply, for MMA and OC.
-- **Each run is a complete sweep run:** the same problem, solver, iteration limit and binarization as `topopt_run_benchmarks`, with the same topology images and summary CSVs and tables. Only `to_params.Gradient` differs. So the report shows both the effect on solution time and the effect on the solution itself.
-- **Order:** for each problem, MMA with AD then analytical; after all MMA problems, OC the same way.
-- **Isolation:** every run is its own process, as in the sweep.
+`pyto.examples_benchmarks.gradient_comparison` optimizes every sweep problem that has analytical sensitivities twice, once with each gradient method, with MMA.
+- **Same optimization as the sweep:** the same problem, mesh, solver, iteration limit and binarization (`build_benchmark` and the same driver call). Only `to_params.Gradient` differs, so both runs take the same path. Every pair is checked: same number of FE solves, final objectives within 1e-6.
+- **Measured per iteration:** each iteration is split into
+  - FE solve (assembly + linear solve);
+  - gradient (AD backward pass or analytical formula);
+  - adjoint solves;
+  - optimizer update.
 
-Run it from the repository root, like the sweep:
+  Each run also records peak memory per iteration, the AD graph size and solve residuals. Reported values are medians over iterations 2 and later; iteration 1 holds the driver's set-up.
+- **Repeats and order:** `--repeats N` runs each pair N times (3 for publication numbers). AD and analytical alternate, so slow drifts of the machine affect both alike. The report shows the spread across repeats.
+- **Quiet machine:** before each run the script waits, for at most `--wait-quiet` minutes, until other programs use less than `--max-busy` % of the CPUs. A run that still starts on a busy machine is marked ⚠ in the report.
+- **Isolation:** every run is its own process, under a memory cap.
+
+Run it from the repository root, with nothing else running:
 ```bash
 export PYTHONPATH=src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true
-nohup python -m pyto.examples_benchmarks.gradient_comparison > gradient_comparison.log 2>&1 &     # everything: hours
-python -m pyto.examples_benchmarks.gradient_comparison --problems LBracketTopLoad_Stress_Vol MBBBeam
+nohup systemd-run --user --scope -p MemoryMax=55G -p MemorySwapMax=0 \
+    python -m pyto.examples_benchmarks.gradient_comparison --repeats 3 > gradient_comparison.log 2>&1 &
+python -m pyto.examples_benchmarks.gradient_comparison --problems LBracketTopLoad_Stress_Vol MBBBeam --max-iters 5
 python -m pyto.examples_benchmarks.gradient_comparison --solver DPCG        # both modes with DPCG
 ```
-Output:
-- `Results/Results_<date>_AUTODIFF/` and `Results/Results_<date>_ANALYTICAL/`: two complete sweeps, in the normal layout.
-- `Results/GRADIENT_COMPARISON_<date>.md` and `.csv`: per method and problem, side by side, with
-  - time and FE solves (AD / analytical);
-  - the speed-up of the whole run, and seconds per FE solve;
-  - final objectives and their relative difference;
-  - volume fractions;
-  - both topology images;
-  - any warnings;
-  - the problems not run, and why.
+Output, in `Results/GradientComparison_<tag>/`:
+- `runs.csv`: one row per run, with per-iteration medians, totals, memory, residuals and the CPU use before start.
+- `pairs.csv` and `GRADIENT_COMPARISON_<tag>.md`: per method and problem, AD and analytical side by side:
+  - time per iteration, and AD's extra time in %;
+  - the phase split for each method;
+  - peak memory and AD graph size;
+  - the same-path check and the spread across repeats.
+- `runs/<method>/<problem>/<gradient>_r<k>/`: `iterations.csv`, `result.json` and the topology image of each run.
 
-`--max-iters N` shortens every run for a quick trial; leave it out for full runs.
+A stopped comparison continues with the same `--tag`. `--max-iters N` shortens every run for a quick trial; leave it out for full runs.
 
 ---
 Next: [Thermal and thermo-structural problems](thermal-and-thermostructural.md) · [Back to contents](../README.md)

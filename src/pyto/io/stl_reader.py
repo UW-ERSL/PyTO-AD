@@ -350,7 +350,7 @@ class STLGeom:
         }
         return triangle_data
     
-    def plotGeometry(self, show_edges=False, show_axes=True, show_bounding_box=True,plotter = None):
+    def plotGeometry(self, show_edges=False, show_axes=True, show_bounding_box=True,plotter = None, color=None):
          # Create a PyVista mesh from the STL data
         vertices = self.mesh.vectors.reshape(-1, 3)
         faces = np.arange(len(vertices)).reshape(-1, 3)
@@ -362,7 +362,7 @@ class STLGeom:
         if show_axes:
             if not external_plotter:
                 plotter.add_axes()
-        plotter.add_mesh(mesh, show_edges=show_edges)        
+        plotter.add_mesh(mesh, show_edges=show_edges, color=color)
         plotter.camera_position = "xy"
 
         if show_bounding_box:

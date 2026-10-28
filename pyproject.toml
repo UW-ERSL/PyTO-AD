@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyto"
+version = "0.1.0"
+description = "PyTO: 3D topology optimization on voxel meshes from STL files, with automatic differentiation"
+readme = "Readme.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+# Unpinned, as requirements.txt; requirements-lock.txt pins the tested versions.
+dependencies = [
+    "numpy", "scipy", "matplotlib", "pillow", "pandas", "torch",
+    "pypardiso; sys_platform != 'darwin'", "pyamg", "numba", "mmapy", "numpy-stl", "trimesh", "manifold3d",
+    "tetgen", "pyvista>=0.45", "vtk", "PyQt5", "pyvistaqt",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ipykernel"]
+
+[project.scripts]
+pyto-gui = "pyto.gui.PyTOGUI:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pyto*"]
+
+# The benchmark problems read their STL files from Models/ in the repository, next to src/: use an editable install
+# (pip install -e .) inside a checkout to run them; a plain `pip install .` provides the library.

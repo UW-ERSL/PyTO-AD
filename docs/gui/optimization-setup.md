@@ -35,9 +35,9 @@ A table with one row per constraint:
 ## Method tab
 | Control | Meaning |
 |---|---|
-| **Method** | MMA or OC. A method that can't solve your formulation is **disabled**, and the tooltip says why (e.g. OC only minimizes compliance with one volume limit). A project saved with another method opens with MMA |
-| **Gradient** | **Automatic differentiation** (default) or **Analytical**. Analytical is offered only for compliance, p-norm stress and volume fraction with MMA or OC; otherwise it's greyed out with the reason. See [Gradients](../code/gradients.md) |
-| **Max iterations**, **Move limit** | iteration cap; the largest density change per iteration (MMA, OC) |
+| **Method** | MMA. A project saved with another method opens with MMA |
+| **Gradient** | **Automatic differentiation** (default) or **Analytical**. Analytical is offered only for compliance, p-norm stress and volume fraction with MMA; otherwise it's greyed out with the reason. See [Gradients](../code/gradients.md) |
+| **Max iterations**, **Move limit** | iteration cap; the largest density change per iteration |
 | **Filter radius (elements)** | the density filter radius, in element sizes (1.5 by default). Larger means thicker members |
 | **Heaviside projection** | pushes the design to 0/1 during the run (MMA); needs more iterations |
 | **Stress-free temperature** | thermo-structural problems only |

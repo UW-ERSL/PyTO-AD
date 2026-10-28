@@ -15,7 +15,7 @@ The coupling is one-way: temperature affects the structure, and deformation does
 ## Why it's different to optimize
 - **The load depends on the design.** Material that expands pushes on its neighbours and supports. Adding material can therefore *increase* compliance, which never happens in load-driven mechanical problems.
 - **Less material than allowed.** The volume constraint is often inactive: in the example in [Thermal and thermo-structural problems](../code/thermal-and-thermostructural.md), the optimizer used 15 % of a 40 % budget.
-- **Non-monotone objective.** OC's update assumes that adding material always helps, so it oscillates (2-cycles) on these problems. Use MMA; the GUI and `method_support` disable OC for thermo-structural problems.
+- **Non-monotone objective.** Adding material does not always help: it also adds thermal load. Update rules that assume monotone, negative sensitivities (optimality criteria) oscillate on these problems; MMA does not assume this.
 - **Choice of objective:**
 
   | Objective | Includes the thermal load? | Typical use |

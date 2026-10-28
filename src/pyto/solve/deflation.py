@@ -57,7 +57,7 @@ class DeflationSolver:
 		self.dofPerGroup = 500
 		self.use_gpu = use_gpu
 		if cp is None:
-			use_gpu = False
+			self.use_gpu = False
 
 	def setPseudoDensity(self,rho):
 		"""Set pseudo-density values for topology optimization.
@@ -501,6 +501,28 @@ class DeflationSolver:
 		else:
 			return self.deflatedPCG_CPU(K, f, W, M, rtol, maxIters, verbose)
 
+	def _coarse_space(self, K, W):
+		"""(KW)^T and a solver for the coarse matrix E = W^T K W, set up once per deflated solve.
+
+		E is small and dense (3 rigid-body modes per group), so it is Cholesky-factorized once and every CG iteration
+		does a dense triangular solve. Calling PARDISO here, as before, put MKL's OpenMP threads inside the CG loop
+		next to NumPy's OpenBLAS threads: the two runtimes kept busy-waiting for each other's cores, and an iteration
+		took ~65 ms instead of ~15 ms at 109k dofs. K is symmetric, so W^T K z = (KW)^T z, which saves one product
+		with K per iteration.
+		"""
+		KW = (K @ W).tocsr()
+		KWT = KW.transpose().tocsr()
+		E = (W.transpose() @ KW).toarray()
+		E = (E + E.T) / 2
+		E[np.diag_indices_from(E)] += 1e-10  # numerical stability (as before)
+		try:
+			factor = spy_linalg.cho_factor(E, lower=True, check_finite=False)
+			coarse_solve = lambda rhs: spy_linalg.cho_solve(factor, rhs, check_finite=False)
+		except np.linalg.LinAlgError:          # E not numerically positive definite: LU instead
+			factor = spy_linalg.lu_factor(E, check_finite=False)
+			coarse_solve = lambda rhs: spy_linalg.lu_solve(factor, rhs, check_finite=False)
+		return KWT, coarse_solve
+
 	def deflatedPCG_CPU(self,
 									K: _Array,
 									f: np.ndarray,
@@ -509,78 +531,45 @@ class DeflationSolver:
 									rtol=1e-8,
 									maxIters=2000,
 									verbose=False):
-		"""Deflated Preconditioned Conjugate Gradient."""
+		"""Deflated Preconditioned Conjugate Gradient.
 
-		n = f.shape[0]
-		WT = W.transpose(copy=True)
-	
-		KW = K @ W
-		WKW = (WT @ KW).toarray()
-		WKW = csr_matrix((WKW + WKW.T) / 2)
-		# Add small value to diagonal for numerical stability
-		WKW += scipy.sparse.eye(WKW.shape[0]) * 1e-10
-		#L = spy_linalg.cho_factor(WKW, lower=True)
+		Stops when the true residual |f - K x| <= rtol |f| (the same test as SciPy's cg used by PCG); the number of
+		iterations of the last solve is kept in self.last_iterations.
+		"""
+		KWT, coarse_solve = self._coarse_space(K, W)
+		f_norm = np.linalg.norm(f)
+		self.last_iterations = 0
+		if f_norm == 0.0:
+			return np.zeros_like(f)
 
-		# Pre-allocate vectors
-		x = np.zeros(n)
-		r = np.zeros(n)
-		z = np.zeros(n)
-		p = np.zeros(n)
-		Kp = np.zeros(n)
-
-		# Initial solution
-		if (pypardiso is None):
-			mu = spy_linalg.spsolve(WKW,WT @ f) 
-		else:
-			mu = pypardiso.spsolve(WKW,WT @ f)# see notes on pypardiso.spsolve
-		
-		x = W @ mu
-
-		# Initial residual
+		# Initial solution: the coarse-space solution, then a deflated search direction
+		x = W @ coarse_solve(W.transpose() @ f)
 		r = f - K @ x
 		z = M @ r
-
-		# Initial search direction
-		Kz = K @ z
-		
-		if (pypardiso is None):
-			mu = spy_linalg.spsolve(WKW,WT @ Kz)
-		else:
-			mu = pypardiso.spsolve(WKW,WT @ Kz)
-		
-		p = z - W @ mu
-
-		# Initial residual norm
+		p = z - W @ coarse_solve(KWT @ z)
 		rz = r.dot(z)
-		rz0 = rz
-		
-		for iter_num in range(maxIters):
+
+		converged = np.linalg.norm(r) <= rtol * f_norm
+		iter_num = 0
+		while not converged and iter_num < maxIters:
+			iter_num += 1
 			Kp = K @ p
-			pKp = p.dot(Kp)
-			
-			alpha = rz / pKp
+			alpha = rz / p.dot(Kp)
 			x += alpha * p
 			r -= alpha * Kp
-			
+			converged = np.linalg.norm(r) <= rtol * f_norm
+			if converged:
+				break
 			z = M @ r
 			rz_new = r.dot(z)
-			if np.sqrt(rz_new/rz0) <= rtol:
-				if verbose:
-					print(f"Converged in {iter_num + 1} iterations")
-				break
-				
 			beta = rz_new / rz
-			Kz = K @ z
-			if (pypardiso is None):
-				mu = spy_linalg.spsolve(WKW,WT @ Kz)
-			else:
-				mu = pypardiso.spsolve(WKW,WT @ Kz)
-			p = z + beta * p - W @ mu
-			
+			p = z + beta * p - W @ coarse_solve(KWT @ z)
 			rz = rz_new
-		#print("Deflated PCG iterations:", iter_num + 1)
-		if (iter_num == maxIters - 1):
-			print("Warning: Maximum iterations reached in DPCG; relative residual:", np.sqrt(rz_new/rz0))
+		self.last_iterations = iter_num
+		if verbose:
+			print(f"DPCG: {iter_num} iterations")
+		if not converged:
+			print("Warning: Maximum iterations reached in DPCG; relative residual:", np.linalg.norm(r) / f_norm)
 		return x
 
 	def deflatedPCG_GPU(self,
@@ -591,97 +580,47 @@ class DeflationSolver:
 									rtol=1e-8,
 									maxIters=2000,
 									verbose=False):
-		"""Deflated Preconditioned Conjugate Gradient."""
+		"""deflatedPCG_CPU with the vectors and the products with K, W, (KW)^T and M on the GPU (CuPy). The small
+		coarse solve stays on the CPU (one vector of 3 x groups values each way per iteration)."""
+		KWT, coarse_solve = self._coarse_space(K, W)
+		f_norm = np.linalg.norm(f)
+		self.last_iterations = 0
+		if f_norm == 0.0:
+			return np.zeros_like(f)
 
-		n = f.shape[0]
-		WT = W.transpose(copy=True)
-		
-		# Pre-compute matrices
-		KW = K @ W
-		WKW = (WT @ KW).toarray()
-		WKW = csr_matrix((WKW + WKW.T) / 2)
-		# Add small value to diagonal for numerical stability
-		WKW += scipy.sparse.eye(WKW.shape[0]) * 1e-10
-		#L = spy_linalg.cho_factor(WKW, lower=True)
-
-		# Pre-allocate vectors
-		x = np.zeros(n)
-		r = np.zeros(n)
-		z = np.zeros(n)
-		p = np.zeros(n)
-		Kp = np.zeros(n)
-
-		# Initial solution
-		if (pypardiso is None):
-			mu = spy_linalg.spsolve(WKW,WT @ f) 
-		else:
-			mu = pypardiso.spsolve(WKW,WT @ f)# see notes on pypardiso.spsolve
-		
-		x = W @ mu
-
-		# Initial residual
-		r = f - K @ x
-		z = M @ r
-
-		# Initial search direction
-		Kz = K @ z
-		
-		if (pypardiso is None):
-			mu = spy_linalg.spsolve(WKW,WT @ Kz)
-		else:
-			mu = pypardiso.spsolve(WKW,WT @ Kz)
-		
-		p = z - W @ mu
-
-		# Initial residual norm
-		rz = r.dot(z)
-		rz0 = rz
-		
-		# Convert arrays to GPU
-		x_gpu = cp.array(x)
-		r_gpu = cp.array(r)
-		z_gpu = cp.array(z)
-		p_gpu = cp.array(p)
-		Kp_gpu = cp.array(Kp)
-		
 		K_gpu = cp.sparse.csr_matrix(K)
 		W_gpu = cp.sparse.csr_matrix(W)
-		WT_gpu = cp.sparse.csr_matrix(WT)
+		KWT_gpu = cp.sparse.csr_matrix(KWT)
 		M_gpu = cp.sparse.csr_matrix(M)
+		coarse = lambda v_gpu: cp.asarray(coarse_solve(cp.asnumpy(v_gpu)))
 
-		for iter_num in range(maxIters):
+		f_gpu = cp.asarray(f)
+		x_gpu = W_gpu @ cp.asarray(coarse_solve(W.transpose() @ f))
+		r_gpu = f_gpu - K_gpu @ x_gpu
+		z_gpu = M_gpu @ r_gpu
+		p_gpu = z_gpu - W_gpu @ coarse(KWT_gpu @ z_gpu)
+		rz = float(r_gpu.dot(z_gpu))
+
+		converged = float(cp.linalg.norm(r_gpu)) <= rtol * f_norm
+		iter_num = 0
+		while not converged and iter_num < maxIters:
+			iter_num += 1
 			Kp_gpu = K_gpu @ p_gpu
-			pKp = float(p_gpu.dot(Kp_gpu))
-			
-			alpha = rz / pKp
+			alpha = rz / float(p_gpu.dot(Kp_gpu))
 			x_gpu += alpha * p_gpu
 			r_gpu -= alpha * Kp_gpu
-			
+			converged = float(cp.linalg.norm(r_gpu)) <= rtol * f_norm
+			if converged:
+				break
 			z_gpu = M_gpu @ r_gpu
 			rz_new = float(r_gpu.dot(z_gpu))
-			if np.sqrt(rz_new/rz0) <= rtol:
-				if verbose:
-					print(f"Converged in {iter_num + 1} iterations")
-				break
-			
 			beta = rz_new / rz
-			Kz_gpu = K_gpu @ z_gpu
-			
-			# Transfer back to CPU for direct solve
-			Kz = cp.asnumpy(Kz_gpu)
-			if (pypardiso is None):
-				mu = spy_linalg.spsolve(WKW,WT @ Kz)
-			else:
-				mu = pypardiso.spsolve(WKW,WT @ Kz)
-				mu_gpu = cp.array(mu)
-			
-			p_gpu = z_gpu + beta * p_gpu - W_gpu @ mu_gpu
-			
+			p_gpu = z_gpu + beta * p_gpu - W_gpu @ coarse(KWT_gpu @ z_gpu)
 			rz = rz_new
-
-		# Transfer final result back to CPU
-		x = cp.asnumpy(x_gpu)
-		#print("Deflated PCG iterations:", iter_num + 1)
-		if (iter_num == maxIters - 1):
-			print("Warning: Maximum iterations reached in DPCG; relative residual:", np.sqrt(rz_new/rz0))
-		return x
+		self.last_iterations = iter_num
+		if verbose:
+			print(f"DPCG (GPU): {iter_num} iterations")
+		if not converged:
+			print("Warning: Maximum iterations reached in DPCG; relative residual:",
+				  float(cp.linalg.norm(r_gpu)) / f_norm)
+		return cp.asnumpy(x_gpu)

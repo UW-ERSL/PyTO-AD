@@ -17,7 +17,6 @@ from pyto.physics.structural.hex_structural_fea import HexStructuralFEA
 from pyto.physics.structural.hex_modal_fea import ModalFEA
 from pyto.physics.thermal.hex_thermal_fea import HexThermalFEA
 from pyto.topopt.drivers.mma import topopt_mma
-from pyto.topopt.drivers.oc import topopt_optimality_criteria
 from pyto.core.tet_mesher import TetMesher
 from pyto.examples_benchmarks.hex_structural_examples import *
 from pyto.examples_benchmarks.hex_thermal_examples import *
@@ -43,11 +42,9 @@ class pyTODemos(enum.Enum):
 
      # The following demos are non-conforming voxel mesh Structural topology optimization
 	HexStructuralTO_DensityMMA = enum.auto() # Create and solve a structural topology optimization problem using Density-method and MMA solver
-	HexStructuralTO_DensityOC = enum.auto() # Create and solve a structural topology optimization problem using Density-method and OC solver
     
     # The following demos are non-conforming voxel mesh thermal topology optimization
 	HexThermalTO_DensityMMA = enum.auto() # Create and solve a thermal topology optimization problem using Density-method and MMA solver
-	HexThermalTO_DensityOC = enum.auto() # Create and solve a thermal topology optimization problem using Density-method and OC solver
     
 
     # The following demos use a conforming tet mesh
@@ -283,55 +280,6 @@ while True:
         plt.show()
 
         # Save the mesh and results
-    elif demo == pyTODemos.HexStructuralTO_DensityOC:
-        feaMode = FEA_MODE.STRUCTURAL
-        to_problem = StructuralTOExamples.Mitchell_2 # Choose the TO problem
-        solver = Solvers.PARDISO #
-        # Get the structural problem
-        mesh, mat_prop, bc,elem_body_force, to_params = getStructuralTOProblem(to_problem,nDOFDesired = 50000)
-        fe_solver = HexStructuralFEA(mesh = mesh,
-                    mat_prop = mat_prop,
-                    bc = bc,
-                    solver = solver,
-                    elem_body_force = elem_body_force)
-        
-        title = f'nDOF: {3*fe_solver.mesh.num_nodes}, nElem: {fe_solver.mesh.num_elems}'
-        startTime = time.time()
-        u, history, success,errorMsg,nFEAs = topopt_optimality_criteria(feaMode, fe_solver,to_params,plot_progress=True,
-                                            )
-        timeTaken = time.time() - startTime
-        title = f"OC: nDOF: {3*fe_solver.mesh.num_nodes}, vol: {history['volfrac'][-1]:0.2f}, J: {history['objective'][-1]:.3g}, time: {timeTaken:.0f} s"
-
-        fig, ax1 = plt.subplots()
-
-        # Plot compliance on left y-axis
-        ax1.set_xlabel('Iterations')
-        ax1.set_ylabel('objective', color='tab:blue')
-        ax1.plot(history['objective'], color='tab:blue', label='objective')
-        ax1.tick_params(axis='y', labelcolor='tab:blue')
-
-        # Plot volume fraction on right y-axis with dotted line
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Volume Fraction', color='tab:orange')
-        ax2.plot(history['volfrac'], color='tab:orange', linestyle=':', label='Volume Fraction')
-        ax2.tick_params(axis='y', labelcolor='tab:orange')
-        ax2.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
-
-        plt.title('OC: Volume and Compliance vs. Iterations')
-
-        # Add legend
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2)
-
-        plt.grid(True)
-        plt.show(block=False)
-
-        print(f"Time taken: {timeTaken:.0f} s")
-        if not success:
-            print(f"Error: {errorMsg}")
-        fe_solver.plot_mesh(title = title)
-
     elif demo == pyTODemos.HexThermalTO_DensityMMA:
         feaMode = FEA_MODE.THERMAL
         to_problem = ThermalTOExamples.FourCornersThermal # Choose the TO problem
@@ -383,54 +331,6 @@ while True:
         plt.show()
 
         # Save the mesh and results
-    elif demo == pyTODemos.HexThermalTO_DensityOC:
-        feaMode = FEA_MODE.THERMAL
-        to_problem = ThermalTOExamples.FourCornersThermal # Choose the TO problem
-        solver = Solvers.PARDISO #
-        # Get the structural problem
-        mesh, mat_prop, bc,elem_body_force, to_params = getThermalTOProblem(to_problem,nDOFDesired = 50000)
-        fe_solver = HexThermalFEA(mesh = mesh,
-                    mat_prop = mat_prop,
-                    bc = bc,
-                    solver = solver,
-                    elem_body_force = elem_body_force)
-        
-        title = f'nDOF: {fe_solver.mesh.num_nodes}, nElem: {fe_solver.mesh.num_elems}'
-        startTime = time.time()
-        u, history, success,errorMsg,nFEAs = topopt_optimality_criteria(feaMode,fe_solver,to_params,plot_progress=True, )
-        timeTaken = time.time() - startTime
-        title = f"OC: nDOF: {fe_solver.mesh.num_nodes}, vol: {history['volfrac'][-1]:0.2f}, J: {history['objective'][-1]:.3g}, time: {timeTaken:.0f} s"
-
-        fig, ax1 = plt.subplots()
-
-        # Plot compliance on left y-axis
-        ax1.set_xlabel('Iterations')
-        ax1.set_ylabel('objective', color='tab:blue')
-        ax1.plot(history['objective'], color='tab:blue', label='objective')
-        ax1.tick_params(axis='y', labelcolor='tab:blue')
-
-        # Plot volume fraction on right y-axis with dotted line
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Volume Fraction', color='tab:orange')
-        ax2.plot(history['volfrac'], color='tab:orange', linestyle=':', label='Volume Fraction')
-        ax2.tick_params(axis='y', labelcolor='tab:orange')
-        ax2.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
-
-        plt.title('OC: Volume and Compliance vs. Iterations')
-
-        # Add legend
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2)
-
-        plt.grid(True)
-        plt.show(block=False)
-
-        print(f"Time taken: {timeTaken:.0f} s")
-        if not success:
-            print(f"Error: {errorMsg}")
-        fe_solver.plot_mesh(title = title)
-
     elif demo == pyTODemos.TetCreateMesh:
         # Create a tet mesh from an STL file and display it
         tetmesh = TetMesher()

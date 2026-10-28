@@ -1,6 +1,6 @@
 # Density method
 
-This page summarizes the density-based topology optimization that MMA and OC implement in PyTO: the material interpolation, the filter and the projection. It is short and practical; for full derivations see the references at the end.
+This page summarizes the density-based topology optimization that MMA implements in PyTO: the material interpolation, the filter and the projection. It is short and practical; for full derivations see the references at the end.
 
 ## Design variables
 The design domain is divided into $N$ voxel elements. Each has a density $x_e \in [0, 1]$: 1 is solid, 0 is void. The optimizer changes $\mathbf{x}$; the FE analysis sees the **physical** density $\tilde{\mathbf{x}}$ obtained after filtering and projection.
@@ -13,7 +13,6 @@ $$E_e = E_0\left(E_v + \tilde{x}_e^{\,p}\,(1 - E_v)\right), \qquad p = 3,\; E_v 
 - $p > 1$ penalizes intermediate densities: half the material gives an eighth of the stiffness. The optimum is therefore close to 0/1.
 - The void floor $E_v$ keeps the stiffness matrix solvable when elements are empty.
 - Thermal conductivity uses the same form, with $p = 1$ by default; thermo-structural problems can set their own penalty and void ratio.
-- RAMP and SIMP+ are alternatives (`MaterialModel`, used by OC).
 - Self-weight scales with $\tilde{x}_e$ (linearly), not with the stiffness law.
 
 Code: `autodiff/material_model.py`. How to add a law: [Add a material model](../extending/add-a-material-model.md).
@@ -38,7 +37,6 @@ $\beta$ starts at 1 and doubles every `HeavisideBetaInterval` iterations (50) up
 ## The optimization problem
 $$\min_{\mathbf{x}} \; f(\tilde{\mathbf{x}}, \mathbf{u}) \quad \text{s.t.} \quad g_j(\tilde{\mathbf{x}}, \mathbf{u}) \le 0,\;\; 0 \le x_e \le 1, \quad \text{where } \mathbf{K}(\tilde{\mathbf{x}})\,\mathbf{u} = \mathbf{F}$$
 - **MMA** (Svanberg 1987) solves a sequence of convex approximations. It handles any number of constraints.
-- **OC** updates each density with a heuristic fixed-point rule for compliance with one volume constraint.
 - Both need the gradients $df/dx_e$, $dg_j/dx_e$: see [Sensitivities](sensitivities.md).
 
 ## References

@@ -32,7 +32,7 @@ OLD_OPTIONS = {"manufacturing": {"extrude": {"enabled": True, "value": "ZDir"},
 def test_old_performance_options_migrate_as_disabled_constraints():
     rows = gs.migrate_performance_options(OLD_OPTIONS)
     assert [(r.expression, r.op, r.bound, r.enabled) for r in rows] == [
-        ("StressFailureFactor()", "<=", 0.5, False), ("Displacement(All, magnitude, pnorm)", "<=", 1e-3, False)]
+        ("StressFailureFactor()", "<=", 0.5, False), ("Displacement(Loads, magnitude, pnorm)", "<=", 1e-3, False)]
     assert gs.migrate_performance_options(None) == []
 
 
@@ -48,12 +48,11 @@ def test_prepare_run():
     assert plan.to_params is not None and not plan.errors
     assert plan.to_params.Objective == (TO_QOI.COMPLIANCE, None) and "autograd" in plan.gradient
     assert plan.cost == "Per iteration: 1 forward FE solve + 1 adjoint solve."
-    # OC chosen for a stress-constrained problem: refused, with the reason
+    # an unknown optimizer (OC was removed) is refused, with the reason
     spec = gs.default_spec(0.4)
-    spec.constraints.append(ConstraintSpec("StressFailureFactor()", "<=", 0.5))
     spec.method = MethodSpec("OC")
     plan = gs.prepare_run(spec, "structural", sel)
-    assert plan.to_params is None and any("use MMA" in i.message for i in plan.errors)
+    assert plan.to_params is None and any("Unknown method" in i.message for i in plan.errors)
     # a Python-file objective is refused without consent
     spec = OptimizationSpec(objective=ObjectiveSpec("python:/nonexistent.py::f"))
     plan = gs.prepare_run(spec, "structural", sel)
@@ -112,11 +111,11 @@ def test_formulation_panel_round_trip_and_method_enabling(qapp):
     out = panel.get_spec()
     assert out.objective == spec.objective and out.constraints == spec.constraints
     assert (out.method.name, out.method.max_iterations, round(out.method.move_limit, 2)) == ("MMA", 77, 0.15)
-    # a non-compliance objective disables OC in the method list
+    # MMA, the one optimizer, stays enabled for a non-compliance objective
     panel.refresh_method_info()
     model = panel.method_combo.model()
     enabled = {panel.method_combo.itemText(i): model.item(i).isEnabled() for i in range(panel.method_combo.count())}
-    assert enabled == {"MMA": True, "OC": False}
+    assert enabled == {"MMA": True}
     assert "autograd" in panel.gradient_label.text()
     # the classical formulation enables them again, and choosing a built-in fills in the expression
     panel.set_spec(gs.default_spec())
@@ -159,9 +158,9 @@ def test_gradient_choice(qapp):
     spec.method.gradient = "manual"                     # the old name is still accepted
     assert any("Analytical gradient not available" in str(i) for i in gs.prepare_run(spec, "structural",
                                                                                     {"Load1": {"nodes": [1]}}).errors)
-    # the method list is MMA and OC; a project saved with any other method opens with MMA
+    # the method list is MMA; a project saved with any other method (e.g. OC) opens with MMA
     panel.set_spec(gs.default_spec())
-    assert [panel.method_combo.itemText(i) for i in range(panel.method_combo.count())] == ["MMA", "OC"]
+    assert [panel.method_combo.itemText(i) for i in range(panel.method_combo.count())] == ["MMA"]
     spec = gs.default_spec()
     spec.method = MethodSpec("OLD_METHOD", 20)
     panel.set_spec(spec)

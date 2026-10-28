@@ -48,7 +48,7 @@ Place heat inputs on surfaces that will stay material. Heat put on void can't fl
 A model with both structural and thermal loads is **thermo-structural**. The stress-free temperature is **Zero-strain T** in the Analysis window, and **Stress-free temperature** on the TopOpt Execute Method tab.
 
 ## Body force
-**Body force** applies an acceleration in m/s² (X, Y, Z), e.g. Y = −9.81 for gravity. It acts on every element in proportion to its density, so it changes as material is removed. Self-weight problems are handled by MMA; OC is disabled for them.
+**Body force** applies an acceleration in m/s² (X, Y, Z), e.g. Y = −9.81 for gravity. It acts on every element in proportion to its density, so it changes as material is removed. Self-weight problems are handled by MMA.
 
 ## Checking before you optimize
 - **Analysis** shows the deformation and stress of the full design. That's a quick check that loads and supports do what you meant.

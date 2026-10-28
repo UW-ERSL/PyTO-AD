@@ -11,6 +11,17 @@
 *.log
 /PyTOSlides
 /Results
+/Claude_outputs
 __pycache__/
 # Working notes: plans, handoff, logs (kept locally, not tracked)
 /notes/
+c1_rest.out
+run_c1_rest.sh
+# Paper figure scripts: cached runs and generated figures stay local (paper/fig_gen and paper/analysis are tracked)
+/paper/fig_gen/_cache/
+/paper/figures/generated/
+# Large result binaries do not belong in the repository
+*.npz
+*.npy
+*.vtp
+*.h5

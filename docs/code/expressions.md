@@ -114,7 +114,7 @@ In the GUI: **TopOpt Execute → Objective → Type: Expression...**, or the exp
 - **Stress quantities** cost more per iteration and react strongly to small changes; start from a loose bound.
 
 ## Gradient and methods
-- An expression that is exactly a built-in quantity (`Compliance()`, `VolumeFraction()`, `Mass()`, `StressPNorm()`, plus the stress constraints) becomes the built-in type, which keeps OC and [analytical gradients](gradients.md) available where they apply.
+- An expression that is exactly a built-in quantity (`Compliance()`, `VolumeFraction()`, `Mass()`, `StressPNorm()`, plus the stress constraints) becomes the built-in type, which keeps [analytical gradients](gradients.md) available where they apply.
 - Any other expression uses automatic differentiation and needs MMA.
 
 ## Adding your own quantity

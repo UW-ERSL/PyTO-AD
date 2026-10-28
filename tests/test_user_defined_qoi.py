@@ -81,9 +81,8 @@ def test_user_constraint_rejects_non_positive_limit(structural_fe_solver, struct
         compute_constraint_and_gradient(params, fe.solve(x, MaterialModel.SIMP), x, fe, structural_KE)
 
 
-def test_mma_runs_user_objective_and_oc_points_to_mma(structural_fe_solver):
+def test_mma_runs_user_objective(structural_fe_solver):
     from pyto.topopt.drivers.mma import topopt_mma
-    from pyto.topopt.drivers.oc import topopt_optimality_criteria
     fe = structural_fe_solver
     tip = _tip_dof(fe)
     params = TOParams()
@@ -92,5 +91,3 @@ def test_mma_runs_user_objective_and_oc_points_to_mma(structural_fe_solver):
     J = np.ravel(np.array(topopt_mma(fe, to_params=params, maxMMAIterations=10, print_progress=False,
                                      binarize_topology=False)[1]["objective"], dtype=float))
     assert np.all(np.isfinite(J)) and J[-1] < J[0]
-    with pytest.raises(ValueError, match="needs the MMA driver"):
-        topopt_optimality_criteria(fe, to_params=params, maxIterations=2, print_progress=False)

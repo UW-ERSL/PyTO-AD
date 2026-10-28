@@ -20,16 +20,16 @@ from pyto.core.tet_mesher import TetMesher
 import pyto.solve.deflation as deflation
 from pyto.physics.thermal.hex_thermal_fea import HexThermalFEA 
 import pyto.physics.structural.hex_structural_fea as hex_structural_fea
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from pyto.topopt.drivers.mma import topopt_mma
 from pyto.topopt.common import *
 from pyto.physics.thermoelastic.topopt_thermostructural_sensitivity import ThermoElasticSensitivity
-from pyto.topopt.drivers.oc import topopt_optimality_criteria
 from pyto.physics.thermoelastic.thermostructural_fea import ThermoStructuralFEA
 from pyto.gui.optimization_setup import (FormulationPanel, default_spec, display_objective,
                                         manufacturing_from_topopt_options, migrate_performance_options, prepare_run,
                                         project_entries, restore_from_project, final_design_summary)
-from pyto.io.topopt_stl_recovery import extract_isosurface_cnn, subtract_voids_from_stl
+from pyto.io.topopt_stl_recovery import (DEFAULT_GAUSSIAN_SIGMA, DEFAULT_SMOOTHING, extract_isosurface,
+                                         recovered_volume_check, subtract_voids_from_stl)
 
 #This is optional; requires win32com
 #from solidworks_interface import SolidWorksInterface
@@ -38,6 +38,11 @@ from pyto.io.topopt_stl_recovery import extract_isosurface_cnn, subtract_voids_f
 
 """
 DEFAULT_FONT_SIZE = 32
+# Colours of the 3D view (same palette as the paper figures)
+MATERIAL_COLOR = "#90EE90"   # STL geometry and recovered (optimized) STL
+SUPPORT_COLOR = "#0072B2"    # structural supports
+LOAD_COLOR = "#B00000"       # structural force arrows and labels
+DENSITY_CMAP = LinearSegmentedColormap.from_list("pyto_density", ["white", "#3E8E3E"])
 #---------------------------------------------------------------------------
 def heat_flux_total(flux, triangle_areas_m2, length_units_per_m=1.0):
     """Total heat (W) of a heat flux entered per display area (W/unit^2) over STL triangles whose areas are in m^2
@@ -969,7 +974,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 show_edges=False,
                 show_axes=True,
                 show_bounding_box=False,
-                plotter=self.plotter
+                plotter=self.plotter,
+                color=MATERIAL_COLOR
             )
         self.update_highlights()
         self.topopt_options_window = TopOptOptionsWindow(self)
@@ -1234,7 +1240,8 @@ class GeometryWindow(QtWidgets.QDialog):
                 show_edges=False, 
                 show_axes=True, 
                 show_bounding_box=False, 
-                plotter=self.parent.plotter
+                plotter=self.parent.plotter,
+                color=MATERIAL_COLOR
             )
 
             # Set geometry reference
@@ -1286,7 +1293,8 @@ class GeometryWindow(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.warning(self, "SolidWorks Error", "Failed to get STL from SolidWorks.")
                 return
             # Plot and set in parent
-            stl_geom.plotGeometry(show_edges=False, show_axes=True, show_bounding_box=False, plotter=self.parent.plotter)
+            stl_geom.plotGeometry(show_edges=False, show_axes=True, show_bounding_box=False, plotter=self.parent.plotter,
+                               color=MATERIAL_COLOR)
             self.parent.stl_geom = stl_geom
 
             # Use the shared info text update
@@ -1528,6 +1536,7 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
     MAX_MARKERS = 5
     ARROW_SCALE_FACTOR = 0.1
     CONSTRAINT_OFFSET_FACTOR = 0.002
+    show_load_values = True   # numeric force / torque label at the arrow tip; set False to hide it
     HIGHLIGHT_OFFSET_FACTOR = 0.001
     
     #Load type configuration
@@ -1537,7 +1546,7 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
             "show_force": True,
             "show_torque": False,
             "directions": {"X": [1,0,0], "Y": [0,1,0], "Z": [0,0,1]},
-            "color": "red"
+            "color": LOAD_COLOR
         },
         "Torque": {
             "handler": "apply_torque", 
@@ -1873,7 +1882,7 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
             at = at[np.linspace(0, len(at) - 1, self.MAX_MARKERS * 10).astype(int)]
         for i, p in enumerate(at):
             arrow = pv.Arrow(start=p - direction * scale, direction=direction, scale=scale)
-            actor = self.parent.plotter.add_mesh(arrow, color="red", pickable=False,
+            actor = self.parent.plotter.add_mesh(arrow, color=LOAD_COLOR, pickable=False,
                                                  name=f"point_force_{id(entry)}_{i}")
             self.parent.force_actors.append(actor)
 
@@ -2175,13 +2184,14 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
         text_pos = axis_point + perp1 * text_offset
         force_unit = self.parent.settings.get_force_unit_string()
         torque_text = f"{torque_value:+.1f} {force_unit}·m"
-        text_actor = plotter.add_point_labels(
-            [text_pos], [torque_text],
-            font_size=DEFAULT_FONT_SIZE, text_color=color,
-            shape_opacity=0,
-            name=f'torque_text_{len(self.parent.torque_actors)}'
-        )
-        self.parent.torque_actors.append(text_actor)
+        if self.show_load_values:
+            text_actor = plotter.add_point_labels(
+                [text_pos], [torque_text],
+                font_size=DEFAULT_FONT_SIZE, text_color=color,
+                shape_opacity=0,
+                name=f'torque_text_{len(self.parent.torque_actors)}'
+            )
+            self.parent.torque_actors.append(text_actor)
         plotter.render()
 
     def get_display_triangles(self, selected_triangles):
@@ -2212,6 +2222,8 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
 
     def add_force_text_label(self, triangle, force_value, direction, color, axis_name):
         """Add text label for force visualization at the tip of the first arrow"""
+        if not self.show_load_values:
+            return
         # Calculate arrow scale and offset
         geom_size = self.calculate_arrow_scale() / self.ARROW_SCALE_FACTOR
         text_offset = 0.12 * geom_size
@@ -2300,7 +2312,7 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
         if constraint_mesh:
             self.add_constraint_visualization(constraint_mesh)
         if point_supports:
-            actor = self.parent.plotter.add_mesh(pv.PolyData(np.asarray(point_supports, dtype=float)), color="black",
+            actor = self.parent.plotter.add_mesh(pv.PolyData(np.asarray(point_supports, dtype=float)), color=SUPPORT_COLOR,
                                                  point_size=16, render_points_as_spheres=True, pickable=False,
                                                  name="point_supports")
             self.parent.constraint_actors.append(actor)
@@ -2348,10 +2360,10 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
         #Add visualization
         constraint_actor = self.parent.plotter.add_mesh(
             offset_mesh,
-            color="black",
-            opacity=0.8,
+            color=SUPPORT_COLOR,
+            opacity=1.0,
             culling=False,
-            lighting=True
+            lighting=False                                   # flat colour: reads as the support colour inside holes
         )
         self.parent.constraint_actors.append(constraint_actor)
     
@@ -4483,7 +4495,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         self.validate_button.clicked.connect(self.validate_formulation)
         layout.addWidget(self.validate_button)
 
-        # Live objective / constraint plot (MMA and OC report every iteration)
+        # Live objective / constraint plot (MMA reports every iteration)
         from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
         from matplotlib.figure import Figure
         self.history_figure = Figure(figsize=(4, 2.4), tight_layout=True)
@@ -4497,7 +4509,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         self.live_topology_check = QtWidgets.QCheckBox("Show topology every iteration")
         self.live_topology_check.setChecked(False)
         self.live_topology_check.setToolTip("Redraw the density in the 3D view after each iteration "
-                                            "(MMA and OC).")
+                                            "(MMA).")
         self.live_topology_check.toggled.connect(lambda on: setattr(self, "show_each_iteration", bool(on)))
         layout.addWidget(self.live_topology_check)
 
@@ -4676,7 +4688,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
                 ax2.plot([float(np.ravel(v)[0]) for v in history[k]], linestyle=":", label=k.replace("_", " "))
             ax2.axhline(0.0, color="grey", linewidth=0.8)
             ax2.set_ylabel("constraint (<= 0)")
-            ax2.legend(fontsize=7, loc="upper right")
+            ax2.legend(loc="center right")                # default size, as the tick labels; clear of both curves once converged
         self.history_canvas.draw_idle()
 
     def run_optimization(self, plan, fe_solver, spec):
@@ -4704,7 +4716,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
                     print(f"[live topology] {e}")
 
         def progress_callback(*args):
-            """Driver log messages go to the GUI log (MMA/OC draw the design from iteration_callback)."""
+            """Driver log messages go to the GUI log (MMA draws the design from iteration_callback)."""
             if len(args) == 1 and isinstance(args[0], str):
                 self.optimization_progress.emit(str(args[0]))
 
@@ -4724,22 +4736,6 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
                 )
                 if success:
                     self.parent.optimized_x = u
-
-            elif method == "OC":
-                u, history, success, error_msg, n_feas = topopt_optimality_criteria(
-                    fe_solver=fe_solver,
-                    to_params=to_params,
-                    maxIterations=to_params.MaxIterations,
-                    move=spec.method.move_limit,
-                    move_tol=0.05,
-                    rel_conv_tol=1e-4,
-                    print_progress=True,
-                    plot_progress=False,
-                    binarize_topology=False,   # the GUI shows the continuous density (as before this change)
-                    progress_callback=progress_callback,
-                    iteration_callback=iteration_callback,
-                    plotter=None,
-                )
 
             else:
                 error_msg = f"Method {method} not implemented"
@@ -4777,8 +4773,8 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
             self.parent.plotter.add_mesh(
                 pv_mesh,
                 scalars='density',
-                cmap='gray_r',
-                show_edges=True,
+                cmap=DENSITY_CMAP,
+                show_edges=pv_mesh.n_cells <= 20000,       # edges would hide the density on fine meshes
                 edge_color='black',
                 line_width=0.5,
                 clim=[0, 1],
@@ -4826,7 +4822,7 @@ class StructuralTopOptWindow(QtWidgets.QDialog):
         self.optimize_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         
-        # A run that stopped at its iteration limit (e.g. OC 'Maximum iterations reached') still produced a
+        # A run that stopped at its iteration limit (e.g. 'Maximum iterations reached') still produced a
         # design; keep it viewable instead of discarding it.
         has_design = history is not None and bool(history.get('objective') if isinstance(history, dict) else False)
         if (success or has_design) and history is not None:
@@ -5102,7 +5098,7 @@ class TopOptResultsWindow(QtWidgets.QDialog):
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle("TopOpt Postprocess")
-        self.setFixedSize(320, 220)
+        self.setFixedSize(320, 280)
         self.parent = parent
 
         # Default values for tet mesh
@@ -5110,6 +5106,28 @@ class TopOptResultsWindow(QtWidgets.QDialog):
 
         # Layout
         layout = QtWidgets.QVBoxLayout(self)
+
+        # Smoothing of the density before the isosurface (Results/SmoothingComparison): the CNN (default) or a
+        # Gaussian filter, deterministic and much faster; sigma in element sizes (wider erodes thin members)
+        smooth_layout = QtWidgets.QHBoxLayout()
+        smooth_layout.addWidget(QtWidgets.QLabel("Smoothing"))
+        self.smoothing_combo = QtWidgets.QComboBox()
+        self.smoothing_combo.addItem("CNN", "cnn")
+        self.smoothing_combo.addItem("Gaussian filter", "gaussian")
+        self.smoothing_combo.setCurrentIndex(self.smoothing_combo.findData(DEFAULT_SMOOTHING))
+        smooth_layout.addWidget(self.smoothing_combo)
+        layout.addLayout(smooth_layout)
+        sigma_layout = QtWidgets.QHBoxLayout()
+        sigma_layout.addWidget(QtWidgets.QLabel("Gaussian width (elements)"))
+        self.sigma_spin = QtWidgets.QDoubleSpinBox()
+        self.sigma_spin.setRange(0.1, 3.0)
+        self.sigma_spin.setSingleStep(0.1)
+        self.sigma_spin.setValue(DEFAULT_GAUSSIAN_SIGMA)
+        sigma_layout.addWidget(self.sigma_spin)
+        layout.addLayout(sigma_layout)
+        self.smoothing_combo.currentIndexChanged.connect(
+            lambda _: self.sigma_spin.setEnabled(self.smoothing_combo.currentData() == "gaussian"))
+        self.sigma_spin.setEnabled(self.smoothing_combo.currentData() == "gaussian")
 
         # Apply Postprocess button
         self.apply_btn = QtWidgets.QPushButton("Apply Postprocess")
@@ -5143,7 +5161,8 @@ class TopOptResultsWindow(QtWidgets.QDialog):
         vtu_path = os.path.splitext(stl_path)[0] + ".vtu"
 
         try:
-            design_domain_stl = pv.read(stl_path).triangulate().compute_normals()
+            # clean(): merge the STL's per-triangle duplicate vertices, so the Boolean operation sees one closed volume
+            design_domain_stl = pv.read(stl_path).clean().triangulate().compute_normals()
             vtu = pv.read(vtu_path)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "File Error", f"Could not load STL/VTU: {e}")
@@ -5158,11 +5177,12 @@ class TopOptResultsWindow(QtWidgets.QDialog):
         QtWidgets.QApplication.processEvents()
 
         try:
-            # Extract void isosurface using CNN
-            self.parent.message_text.append("Extracting void isosurface with CNN...")
+            method, sigma = self.smoothing_combo.currentData(), self.sigma_spin.value()
+            self.parent.message_text.append(
+                "Extracting void isosurface, smoothing: " + ("CNN..." if method == "cnn" else f"Gaussian filter, width {sigma:g} elements..."))
             QtWidgets.QApplication.processEvents()
-            
-            void_region_stl = extract_isosurface_cnn(vtu, isovalue=0.5)
+
+            void_region_stl = extract_isosurface(vtu, isovalue=0.5, method=method, sigma=sigma)
             
             self.parent.message_text.append("Performing boolean subtraction...")
             QtWidgets.QApplication.processEvents()
@@ -5180,19 +5200,25 @@ class TopOptResultsWindow(QtWidgets.QDialog):
 
         self.parent.optimized_topology_stl = optimized_topology_stl
 
+        # Sanity check: the recovered volume against the voxel design (elements with density >= 0.5)
+        density = np.asarray(topopt_results.get("density", []), dtype=float)
+        if density.size and getattr(self.parent, "hex_mesh", None) is not None:
+            voxel_volume = float((density >= 0.5).sum() * np.prod(self.parent.hex_mesh.elem_size))
+            ok, ratio = recovered_volume_check(optimized_topology_stl, voxel_volume)
+            self.parent.message_text.append(f"Recovered volume / voxel design volume: {ratio:.3f}")
+            if not ok:
+                QtWidgets.QMessageBox.warning(
+                    self, "Check the recovered part",
+                    f"The recovered part's volume is {ratio:.2f} times the voxel design's (expected about 1). "
+                    "The part is saved, but check it before use: the design-domain STL may not match the mesh, or "
+                    "the recovery removed or kept too much material.")
+
         # Remove only mesh actors, keep geometry info
         for name in list(self.parent.plotter.actors.keys()):
             if name != "geometry_info":
                 self.parent.plotter.remove_actor(name, reset_camera=False)
 
-        # Get color from the original STL actor if available
-        orig_actor = self.parent.plotter.actors.get("stl_geometry")
-        if orig_actor and hasattr(orig_actor, "GetProperty"):
-            color = orig_actor.GetProperty().GetColor()
-        else:
-            color = 'lightblue'  # fallback
-
-        self.parent.plotter.add_mesh(optimized_topology_stl, color=color, opacity=1.0, name="Optimized STL")
+        self.parent.plotter.add_mesh(optimized_topology_stl, color=MATERIAL_COLOR, opacity=1.0, name="Optimized STL")
         self.parent.plotter.reset_camera()
         self.parent.plotter.render()
         self.parent.message_text.append("Optimized STL visualized.")
@@ -5446,21 +5472,17 @@ class DisplayOptionsWindow(QtWidgets.QDialog):
             self.parent.stl_geom.plotGeometry(
                 show_edges=self.show_triangles.isChecked(),
                 show_bounding_box=self.show_bounding_box_checkbox.isChecked(),
-                plotter=self.parent.plotter
+                plotter=self.parent.plotter,
+                color=MATERIAL_COLOR
             )
         elif geometry_choice == "TopOpt" and hasattr(self.parent, "topopt_results") and self.parent.topopt_results:
             msg = show_topopt_field(self.parent, "Density" if field_choice == "None" else field_choice)
             if msg:
                 QtWidgets.QMessageBox.information(self, "Field not available", msg)
         elif geometry_choice == "Final Design" and hasattr(self.parent, "optimized_topology_stl") and self.parent.optimized_topology_stl is not None:
-            orig_actor = self.parent.plotter.actors.get("stl_geometry")
-            if orig_actor and hasattr(orig_actor, "GetProperty"):
-                color = orig_actor.GetProperty().GetColor()
-            else:
-                color = 'lightblue'
             self.parent.plotter.add_mesh(
                 self.parent.optimized_topology_stl,
-                color=color,
+                color=MATERIAL_COLOR,
                 opacity=1.0,
                 name="Optimized STL"
             )
@@ -6092,7 +6114,8 @@ class ProjectsWindow(QtWidgets.QDialog):
         self.parent.plotter.clear_actors()
         self.parent.plotter.reset_camera()
         stl_geom = STLGeom(file_path)
-        stl_geom.plotGeometry(show_edges=False, show_axes=True, show_bounding_box=False, plotter=self.parent.plotter)
+        stl_geom.plotGeometry(show_edges=False, show_axes=True, show_bounding_box=False, plotter=self.parent.plotter,
+                               color=MATERIAL_COLOR)
         
         area, volume, _, _ = stl_geom.compute_mass_properties()
         bounds = stl_geom.get_bounding_box()

@@ -2,7 +2,6 @@ from pyto.examples_benchmarks.topopt_thermostructural_benchmarks import ThermoSt
 from pyto.topopt.common import *
 from pyto.physics.thermoelastic.thermostructural_fea import ThermoStructuralFEA
 from pyto.topopt.drivers.mma import topopt_mma
-from pyto.topopt.drivers.oc import topopt_optimality_criteria	
 
 from pyto.examples_benchmarks.topopt_structural_benchmarks import *
 from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
@@ -72,6 +71,12 @@ benchmarks_thermostructural_problems = [ThermoStructuralTOExamples.BiClamp,
 					ThermoStructuralTOExamples.BiClampDT4,
 					ThermoStructuralTOExamples.BiClampDT10,
 					ThermoStructuralTOExamples.MBBBeam,
+					ThermoStructuralTOExamples.MBBBeamNoHeat]
+
+# In the full benchmark sweep only, not in the measurement studies (gradient_comparison, solver scaling): ΔT variants
+# of BiClamp that add no new information there, and MBBBeamNoHeat (no heating, i.e. the structural MBBBeam again).
+benchmarks_full_sweep_only = [ThermoStructuralTOExamples.BiClampDT4,
+					ThermoStructuralTOExamples.BiClampDT10,
 					ThermoStructuralTOExamples.MBBBeamNoHeat]
 
 # Defined and building (checked 2026-09-28) but not part of the standard sweep: variants of listed problems,
@@ -148,9 +153,9 @@ def runTOMethodOnBenchmarks(optimizationMethod, problems_override: list = None, 
 	"""Run one method on benchmark problems and record images and summaries under Results/Results_<date_str>/.
 
 	gradient: None keeps each problem's setting (automatic differentiation); GRADIENT_METHOD.AUTODIFF /
-	ANALYTICAL (or their names) set to_params.Gradient for MMA/OC. solver: a Solvers member to use instead of
-	build_benchmark's choice. max_iters: overrides to_params.MaxIterations (quick trial runs). All three are used
-	by gradient_comparison; a normal sweep passes none of them."""
+	ANALYTICAL (or their names) set to_params.Gradient for MMA. solver: a Solvers member to use instead of
+	build_benchmark's choice. max_iters: overrides to_params.MaxIterations (quick trial runs). A normal sweep passes
+	none of them (gradient_comparison builds and runs the problems itself, with per-iteration measurement)."""
 	# Create a list to store results
 
 	# Resolved once per call (not once per output path -- see
@@ -159,7 +164,7 @@ def runTOMethodOnBenchmarks(optimizationMethod, problems_override: list = None, 
 	date_str = date_str or time.strftime('%Y-%m-%d')
 
 	saveVTU = False  # Set to True if you want to save the VTU files for MMA method
-	binarize_topology = True  # Set to True if you want to binarize the topology for MMA/OCM method
+	binarize_topology = True  # Set to True if you want to binarize the topology
 	results_list = []
 	dsolver = deflation.DeflationSolver()
 	feaMode = FEA_MODE.STRUCTURAL
@@ -223,15 +228,6 @@ def runTOMethodOnBenchmarks(optimizationMethod, problems_override: list = None, 
 				u, history,success,errorMsg,nFEAs = topopt_mma(fe_solver,to_params = to_params,
 										maxMMAIterations = to_params.MaxIterations,
 										binarize_topology = binarize_topology and not to_params.HeavisideProjection,print_progress = print_progress)
-			elif optimizationMethod == TO_METHODS.DENSITYOCM:
-				# GravityPlate (pure self-weight) is skipped: its compliance is not monotone in the density, OC's
-				# update assumes negative sensitivities, and it collapses the design (tried SIMP and RAMP,
-				# 2026-09-28). CentrifugalPlate runs fine with OC.
-				if to_problem in benchmarks_structural_noncompliance or to_problem == StructuralTOExamples.GravityPlate:
-					continue
-				u, history, success,errorMsg,nFEAs = topopt_optimality_criteria(fe_solver,to_params = to_params,
-												maxIterations = to_params.MaxIterations,
-												binarize_topology = binarize_topology and not to_params.HeavisideProjection,print_progress = print_progress)
 			timeTaken = time.time() - startTime
 
 			image_path = f"{output_dir}/{to_problem.name}.png"
@@ -668,7 +664,7 @@ def run_all_benchmarks_isolated(optimizationMethods=None, problems=None):
 	already got split across two days.
 	"""
 	if optimizationMethods is None:
-		optimizationMethods = [TO_METHODS.DENSITYMMA, TO_METHODS.DENSITYOCM]
+		optimizationMethods = [TO_METHODS.DENSITYMMA]
 	if problems is None:
 		problems = allBenchmarks
 

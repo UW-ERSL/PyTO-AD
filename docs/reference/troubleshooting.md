@@ -30,7 +30,6 @@ This page lists common problems and error messages, with their cause and fix. Se
 | `Minimizing volume/mass without constraints: the optimum is an empty design` | ill-posed | add a stiffness, displacement or stress constraint |
 | `WARNING: Minimizing compliance without a volume or mass limit` | the answer is the full block | add `VolumeFraction() <= ...` |
 | `X not available for thermal problems` | the quantity doesn't exist for that physics | see the physics column in [Expressions](../code/expressions.md#quantities) |
-| a method is greyed out, or `OC supports only minimize Compliance() with a single 'VolumeFraction() <= bound' constraint; use MMA.` | the method can't solve this formulation | use MMA |
 | `Analytical gradient not available: ... Use automatic differentiation.` | no analytical gradient for this quantity or problem | switch **Gradient** to automatic differentiation ([Gradients](../code/gradients.md#analytical-gradients)) |
 | `GFUNCTION objective '...' has no gradient path to the design` | a Python function used NumPy, `.item()` or `float()` on the solution | use torch operations ([User-defined functions](../code/user-defined-functions.md#rules)) |
 
@@ -40,7 +39,7 @@ This page lists common problems and error messages, with their cause and fix. Se
 | message `the 0/1 (binarized) design was much worse than the continuous one ... so the continuous design is returned` | thresholding would have cut load or heat paths (typical for grey designs, e.g. heat conduction) | the returned grey design is fine to use; for a 0/1 part use Heaviside projection or a higher conductivity penalty ([Thresholding](../postprocessing/thresholding-and-evaluation.md#when-thresholding-goes-wrong)) |
 | a constraint is `violated` at the end | the bound is too tight for the material, or too few iterations | loosen it, allow more material, or run more iterations |
 | `Warning: stress limit exceeded by x%` | the final 0/1 design's peak stress is above the limit | a slightly tighter bound, or `StressFailureFactor` with a margin |
-| objective oscillates | move limit too large, or a design-dependent load with OC | lower **Move limit**; use MMA |
+| objective oscillates | move limit too large, or a design-dependent load | lower **Move limit** |
 | the design uses less material than allowed | normal for heated or self-weight problems (material adds load) | nothing to fix ([Thermo-structural coupling](../theory/thermo-structural.md#why-its-different-to-optimize)) |
 | grey, blurry design | filter radius large relative to the part, or few iterations | smaller **Filter radius**, more iterations, Heaviside projection |
 | checkerboard pattern | no density filter (e.g. `APPLY_FILTER_TO_DENSITY = False`) | keep the filter on |

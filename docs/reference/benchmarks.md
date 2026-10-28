@@ -59,15 +59,16 @@ This page lists every ready-made problem in PyTO, with its physics, formulation 
 | Problem | Objective | Constraints | Options | Group |
 |---|---|---|---|---|
 | `BiClamp` | COMPLIANCE, ΔT = 1 K (Rodrigues & Fernandes 1995, Example A) | VOLUME_FRACTION ≤ 0.4 | extrude z, symmetry | thermostructural_problems |
-| `BiClampDT0`, `BiClampDT4`, `BiClampDT10` | the same with ΔT = 0, 4, 10 K | VOLUME_FRACTION ≤ 0.4 | extrude z, symmetry | thermostructural_problems |
+| `BiClampDT0` | COMPLIANCE, ΔT = 0 K (BiClamp without heating) | VOLUME_FRACTION ≤ 0.4 | extrude z, symmetry | thermostructural_problems |
+| `BiClampDT4` | COMPLIANCE, ΔT = 4 K (BiClamp with a larger temperature rise) | VOLUME_FRACTION ≤ 0.4 | extrude z, symmetry | thermostructural_problems (full sweep only) |
+| `BiClampDT10` | COMPLIANCE, ΔT = 10 K (BiClamp with a larger temperature rise) | VOLUME_FRACTION ≤ 0.4 | extrude z, symmetry | thermostructural_problems (full sweep only) |
 | `MBBBeam` | COMPLIANCE, steady heating (Ooms et al. 2023) | VOLUME_FRACTION ≤ 0.4 | extrude z, Heaviside | thermostructural_problems |
-| `MBBBeamNoHeat` | the same without heating | VOLUME_FRACTION ≤ 0.4 | extrude z, Heaviside | thermostructural_problems |
+| `MBBBeamNoHeat` | the same without heating | VOLUME_FRACTION ≤ 0.4 | extrude z, Heaviside | thermostructural_problems (full sweep only) |
 
 ## Which methods run which problems in the sweep
 | Method | Runs |
 |---|---|
 | MMA | all |
-| OC | compliance problems, except GravityPlate (self-weight) |
 
 ---
 Next: [Validation](validation.md) · [Back to contents](../README.md)

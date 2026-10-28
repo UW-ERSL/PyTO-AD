@@ -69,9 +69,36 @@ Results go to `Results/Results_<date>/<category>/<method>/`:
 - a summary CSV per method;
 - combined summary tables.
 
-The sweep runs **MMA and OC**. It skips OC on the problems it doesn't support: the non-compliance problems and GravityPlate (self-weight). Reading and comparing results: [Comparing results](../postprocessing/comparing-results.md).
+The sweep runs **MMA**. Reading and comparing results: [Comparing results](../postprocessing/comparing-results.md).
 
-To time automatic differentiation against analytical sensitivities on the same problems (MMA and OC, each run in its own process), use `python -m pyto.examples_benchmarks.gradient_comparison`; see [Gradients](gradients.md#comparing-the-two-on-the-benchmarks).
+To time automatic differentiation against analytical sensitivities on the same problems (MMA, each run in its own process), use `python -m pyto.examples_benchmarks.gradient_comparison`; see [Gradients](gradients.md#comparing-the-two-on-the-benchmarks).
+
+### Solver scaling study
+`python -m pyto.examples_benchmarks.solver_scaling` finds how far each linear solver goes with automatic differentiation and with analytical sensitivities, and what each costs in time and memory. It runs three structural problems: EdgeCantilever, the thick L-bracket with p-norm stress, and GEGrabCAD. Each problem is refined from 25k up to 3.2M dofs, and every step runs an MMA optimization capped at 10 iterations (`--max-iters`) once per solver (PARDISO, SPSOLVE, DPCG, DPCG on the GPU, PCG) and gradient method.
+
+Runs have no time limit by default; with `--time-limit SECONDS` every run is stopped after that time. A stopped run's time per iteration comes from the iterations it completed, and the report shows how many of the planned evaluations ran plus an estimate for the full run. A solver/gradient pair stops climbing at its first failure: fewer than 3 iterations within the time limit, the memory cap (70 GB by default) or out of memory, a linear solve that does not converge, or an error.
+
+Each iteration records:
+- time per phase;
+- peak memory;
+- the size of the AD graph;
+- solver factor memory;
+- CG iterations and solve residuals;
+- the objective.
+
+At each mesh size, iteration 1 of every solver and gradient method is compared with the PARDISO automatic-differentiation run.
+
+Results go to `Results/SolverScaling_<date>/`: summary CSV, checks CSV, a report with plots, and per-run iteration histories.
+
+Run it from the repository root, inside a memory cgroup:
+
+```bash
+export PYTHONPATH=src MPLBACKEND=Agg PYVISTA_OFF_SCREEN=true
+nohup systemd-run --user --scope -p MemoryMax=55G -p MemorySwapMax=0 \
+    python -m pyto.examples_benchmarks.solver_scaling > solver_scaling.log 2>&1 &
+```
+
+If it stops, start it again with the same `--tag`; finished runs are skipped. `--problems`, `--solvers`, `--gradients`, `--dofs`, `--max-iters` and `--time-limit` narrow the study.
 
 ## Adding a benchmark problem
 1. Write a builder in `examples_benchmarks/hex_structural_examples.py` (or the thermal / thermo-structural file). Copy an existing one; each returns `mesh, mat_prop, bc, elem_body_force`.

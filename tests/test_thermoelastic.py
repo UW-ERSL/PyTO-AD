@@ -177,12 +177,10 @@ def test_coupled_autograd_gradient_matches_hand_derived_thermoelastic_sensitivit
 
 
 # ---------------------------------------------------------------- B4: drivers accept the coupled solver
-def test_mma_converges_and_oc_runs_on_the_coupled_solver():
-    # Thermal compliance is not monotone in the design: MMA oscillates for a few iterations, then converges;
-    # OC (which assumes monotone, negative sensitivities) 2-cycles here, so only check that it runs.
+def test_mma_converges_on_the_coupled_solver():
+    # Thermal compliance is not monotone in the design: MMA oscillates for a few iterations, then converges.
     from pyto.topopt.common import TOParams, TO_QOI
     from pyto.topopt.drivers.mma import topopt_mma
-    from pyto.topopt.drivers.oc import topopt_optimality_criteria
     params = TOParams()
     params.Objective = (TO_QOI.COMPLIANCE, None)
     params.Constraints = [(TO_QOI.VOLUME_FRACTION, None, 0.5)]
@@ -191,9 +189,6 @@ def test_mma_converges_and_oc_runs_on_the_coupled_solver():
     J = np.array(h["objective"]).ravel()
     assert np.all(np.isfinite(J)) and J[-1] < 0.5 * J[0]
     assert h["volfrac"][-1] <= 0.5 + 0.01  # volume constraint is an upper bound
-    h = topopt_optimality_criteria(_coupled_problem(), to_params=params, maxIterations=4, print_progress=False,
-                                   binarize_topology=False)[1]
-    assert np.all(np.isfinite(np.array(h["objective"])))
 
 
 # ---------------------------------------------------------------- B0: problem definitions

@@ -13,20 +13,13 @@ STRESS = OptimizationSpec(constraints=[ConstraintSpec("VolumeFraction()", "<=", 
 
 
 def test_method_support_matrix():
-    s = method_support(CLASSICAL, "structural")
-    assert all(ok for ok, _ in s.values())
-    s = method_support(STRESS, "structural")
-    assert s["MMA"][0] and not s["OC"][0]
-    assert "use MMA" in s["OC"][1]
-    s = method_support(CLASSICAL, "structural", body_force=True)        # self-weight: MMA only
-    assert s["MMA"][0] and not s["OC"][0] and "body forces" in s["OC"][1]
-    s = method_support(CLASSICAL, "thermo-structural")
-    assert s["MMA"][0] and not s["OC"][0] and "2-cycles" in s["OC"][1]
-    assert all(ok for ok, _ in method_support(CLASSICAL, "thermal").values())
+    # MMA is the one optimizer and solves every formulation
     maxi = OptimizationSpec(objective=ObjectiveSpec("Compliance()", "maximize"))
-    assert not method_support(maxi, "structural")["OC"][0]
+    for spec in (CLASSICAL, STRESS, maxi):
+        for physics in ("structural", "thermal", "thermo-structural"):
+            assert method_support(spec, physics) == {"MMA": (True, "")}
+    assert method_support(CLASSICAL, "structural", body_force=True) == {"MMA": (True, "")}
     assert "autograd" in gradient_source("MMA") and "Analytical" in gradient_source("MMA", "analytical")
-    assert set(method_support(CLASSICAL, "structural")) == {"MMA", "OC"}
 
 
 def test_cost_estimate_counts_adjoint_solves():
@@ -60,3 +53,23 @@ def test_gradient_check_passes_for_correct_and_flags_broken_functions(structural
     broken.Constraints = [(TO_QOI.VOLUME_FRACTION, None, 0.5)]
     r = check_gradient(broken, fe, n_elements=4)
     assert not r[0].ok and r[1].ok
+
+
+def test_gradient_check_covers_filter_symmetry_and_projection(structural_fe_solver):
+    # check_gradient perturbs MMA's own design variable, before the density filter (with a symmetry plane) and the
+    # Heaviside projection, so finite differences and the gradient (AD or analytical) both go through that chain
+    from pyto.topopt.spec import ManufacturingSpec, RegularizationSpec
+    fe = structural_fe_solver
+    for gradient in ("autodiff", "analytical"):
+        spec = OptimizationSpec(regularization=RegularizationSpec(filter_radius=2.5, heaviside=True),
+                                manufacturing=ManufacturingSpec(symmetry=["Y"]))
+        spec.method.gradient = gradient
+        results = check_gradient(compile_spec(spec), fe, n_elements=4)
+        assert all(r.ok for r in results), (gradient, results)
+
+
+def test_heaviside_projection_is_shared_and_maps_unit_interval():
+    from pyto.topopt.drivers._shared import heaviside_projection
+    x = torch.tensor([0.0, 0.5, 1.0], dtype=torch.float64)
+    for beta in (1.0, 8.0, 32.0):
+        assert torch.allclose(heaviside_projection(x, beta), x)          # fixed points 0, eta = 0.5, 1

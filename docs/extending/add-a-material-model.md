@@ -9,7 +9,7 @@ This recipe adds a new **interpolation law**: how an element's stiffness or cond
 |---|---|---|
 | `get_structural_material_model_scaling_torch(x, model)` | torch, differentiable | the FE solve (autograd path) |
 | `get_structural_material_model_scaling(x, model)` | numpy | derived sensitivities, post-processing |
-| `get_structural_material_model_sensitivity(x, model)` | numpy, the derivative $dE/dx$ | analytical gradients, OC |
+| `get_structural_material_model_sensitivity(x, model)` | numpy, the derivative $dE/dx$ | analytical gradients |
 
 The thermal set (`get_thermal_...`) is the same with the conductivity constants. The torch version also takes the per-problem `penalty` and `void_ratio`.
 
@@ -26,7 +26,6 @@ The current laws, with $E_v = 10^{-8}$ (void floor), $p = 3$ (structural) or $1$
 2. **Torch law:** add a branch to `get_structural_material_model_scaling_torch` (and the thermal one if it applies), using torch operations.
 3. **NumPy law and derivative:** add the same branch to `get_structural_material_model_scaling` and `get_structural_material_model_sensitivity`, with the analytic derivative.
 4. **Use it:**
-   - **OC** reads `to_params.materialModel`.
    - **MMA** currently sets `MaterialModel.SIMP` inside the driver. To use another law there, read `to_params.materialModel` instead, in `topopt/drivers/mma.py` (`material_model = MaterialModel.SIMP` near the top of `topopt_mma`), and likewise in the other drivers.
 5. **Test** that the three functions agree. For random `x` in (0, 1):
    - the torch and NumPy laws are equal;

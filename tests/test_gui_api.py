@@ -18,9 +18,7 @@ def _callables():
     from pyto.physics.structural.hex_structural_fea import HexStructuralFEA
     from pyto.physics.thermal.hex_thermal_fea import HexThermalFEA
     from pyto.topopt.drivers.mma import topopt_mma
-    from pyto.topopt.drivers.oc import topopt_optimality_criteria
-    return {f.__name__: f for f in (topopt_mma, topopt_optimality_criteria,
-                                    HexStructuralFEA, HexThermalFEA)}
+    return {f.__name__: f for f in (topopt_mma, HexStructuralFEA, HexThermalFEA)}
 
 
 @pytest.mark.parametrize("source", ["PyTOGUI.py", "PyTO_demos.py"])

@@ -7,7 +7,7 @@ import math
 import time
 import matplotlib.pyplot as plt
 from pyto.topopt.drivers.mmaWrapper import runMMA
-from pyto.topopt.drivers._shared import binarization_acceptable, setup_driver_state, torch_sparse_filter
+from pyto.topopt.drivers._shared import binarization_acceptable, heaviside_projection, setup_driver_state, torch_sparse_filter
 from pyto.topopt.manual_sensitivities import manual_gradients
 from pyto.examples_benchmarks.topopt_structural_benchmarks import *
 from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
@@ -16,12 +16,8 @@ from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
 def run_topopt_mma(to_problem):
     """Run topology optimization using the MMA method.
 
-    Mirrors run_topopt_ocm's pattern (see topopt/drivers/oc.py) -- builds the mesh
-    and FE solver for the given example, then calls topopt_mma() and plots
-    the result. This wrapper didn't previously exist (only topopt_mma()
-    itself did), which meant `from pyto.topopt.drivers.mma import
-    run_topopt_mma` -- e.g. main.ipynb's import cell -- raised an
-    ImportError, unlike the equivalent OC import.
+    Builds the mesh and FE solver for the given example, then calls topopt_mma() and plots the result
+    (`from pyto.topopt.drivers.mma import run_topopt_mma`, as in main.ipynb's import cell).
 
     Args:
         to_problem: A StructuralTOExamples or ThermalTOExamples member
@@ -192,9 +188,7 @@ def topopt_mma(fe_solver, #hex_structural_fea.HexStructuralFEA or hex_thermal_fe
                 # Smooth Heaviside projection of the filtered density (Ooms et al. 2023, eq. 33, eta = 0.5),
                 # continuation in beta from the iteration count. Autograd differentiates through it.
                 beta = min(to_params.HeavisideBetaMax, 2.0 ** (mmaIterations // to_params.HeavisideBetaInterval))
-                eta = 0.5
-                x_filtered = (math.tanh(beta * eta) + torch.tanh(beta * (x_filtered - eta))) / (
-                    math.tanh(beta * eta) + math.tanh(beta * (1.0 - eta)))
+                x_filtered = heaviside_projection(x_filtered, beta)
 
             # Set filtered density on mesh for FE + plotting
             with torch.no_grad():

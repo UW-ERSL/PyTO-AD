@@ -137,6 +137,11 @@ class HexThermalFEA:
 
     Returns: Torch tensor of (num_dofs,) of the solution to the finite element problem.
     """
+    # Drop the previous solve's results first: on the AD path they hold its graph and factorization (see
+    # HexStructuralFEA.solve).
+    self.sol = self.stiff_mtrx = None
+    self._last_solve = {}
+
     if x is None:
       x = torch.ones(self.mesh.num_elems, dtype=torch.float64)
 
