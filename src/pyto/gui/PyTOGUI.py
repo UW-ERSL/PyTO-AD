@@ -6367,6 +6367,11 @@ class ProjectsWindow(QtWidgets.QDialog):
 def main():
     """Start the PyTO GUI (used by `python -m pyto.gui.PyTOGUI` and by run_gui.py in the repository root)."""
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+    if sys.platform == "darwin":
+        # The GUI is drawn for a light theme (light panel backgrounds); in macOS dark mode Qt would switch the text to
+        # white on those panels. Fusion with Qt's default light palette keeps it readable in both modes.
+        app.setStyle("Fusion")
+        app.setPalette(app.style().standardPalette())
     app.setStyleSheet("* { font-size: 10pt; }")
     window = MainWindow()
     window.show()
