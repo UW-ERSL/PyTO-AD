@@ -40,28 +40,36 @@ Tetrahedral FE is available for re-analysis of exported parts; optimization uses
 Not available yet: transient thermal, modal and large-deformation analysis.
 
 ## Installation
-Python 3.10 in a conda environment named `PyToLib`:
+Python 3.10, in its own conda environment. Two ways, both described step by step in
+[Installation](docs/getting-started/installation.md):
+
+**A. Clone the repository**: the GUI, your own scripts, the tutorial problems, the examples, the tests and the
+paper's studies ([details](docs/getting-started/installation.md#a-clone-the-repository)).
 ```bash
 git clone https://github.com/UW-ERSL/PyTO-AD
 cd PyTO-AD
 conda create -n PyToLib python=3.10
 conda activate PyToLib
 pip install -r requirements.txt        # requirements-dev.txt adds the test tools
-pip install -e .                       # optional: makes `import pyto` work without PYTHONPATH
+pip install -e .                       # optional: `import pyto` from anywhere, and the pyto-gui command
+python run_gui.py                      # start the GUI
 ```
-Details (CPU-only PyTorch, macOS, optional packages): [Installation](docs/getting-started/installation.md).
 
-### Install with pip from GitHub
-To use PyTO-AD on your own STL parts, from Python or the GUI, without cloning:
+**B. Install with pip from GitHub**: the library and the GUI, for your own STL parts, without cloning
+([details](docs/getting-started/installation.md#b-install-with-pip-from-github)).
 ```bash
+conda create -n PyToLib python=3.10 && conda activate PyToLib
 pip install --index-url https://download.pytorch.org/whl/cpu torch     # optional: CPU-only PyTorch, much smaller
 pip install "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
 pyto-gui                                                                # start the GUI
 ```
-The package is `pyto-ad`; in Python it is imported as `pyto`. This install gives the whole library (FE solvers,
-MMA, AD gradients through the sparse solve, expressions and `check_gradient`, STL recovery) and the GUI. The
-tutorial and benchmark problems, the quick-start scripts and the paper's studies read their STL files from
-`Models/` in the repository, so they need a clone with `pip install -e .` (above).
+The package is `pyto-ad`, imported as `pyto`. The tutorial problems, the quick-start scripts and the paper's
+studies read their STL files from `Models/` in the repository, so they need a clone (A).
+
+**Updating:** `git pull` in a clone; for a pip install,
+`pip install --force-reinstall --no-deps "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"`
+([details](docs/getting-started/installation.md#updating)). CPU-only PyTorch, macOS (no PARDISO; SciPy's solver is
+used), newer `pyvista` versions and optional packages: [Installation](docs/getting-started/installation.md).
 
 ## Quick start: code
 ```python

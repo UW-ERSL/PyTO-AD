@@ -1,39 +1,53 @@
 # Installation
 
-This page sets up a Python environment for PyTO and checks that it works. It is for everyone, whether you plan to use the GUI or the library.
+This page sets up PyTO-AD and checks that it works. There are two ways to install it:
+
+| | A. Clone the repository | B. Install with pip from GitHub |
+|---|---|---|
+| Use it for | everything: the GUI, your own scripts, the tutorial problems, the examples, the tests and the paper's studies | your own STL parts, from Python or the GUI |
+| GUI | `python run_gui.py` (finds the `PyToLib` environment itself) | `pyto-gui` |
+| Tutorial problems, `docs/examples`, tests | yes | no: they read STL files from `Models/` in the repository |
+| Update | `git pull` | `pip install --force-reinstall ...` ([Updating](#updating)) |
+
+Both need the same [requirements](#requirements). If unsure, use A.
 
 ## Requirements
-- **Python 3.10.** Other versions may work but are not tested.
-- **conda** (Anaconda, Miniconda or Miniforge). The GUI launcher looks for a conda environment named **`PyToLib`**.
-- **Operating system:** tested on Linux (Ubuntu, x86-64, Python 3.10.19); all results in the paper were produced there. The code also targets Windows and macOS, but they are not part of the release tests. On macOS the PARDISO solver is not available, and PyTO uses SciPy's solver instead.
-- **Pinned versions:** `requirements-lock.txt` lists the exact package versions of the tested environment (`pip install -r requirements-lock.txt`).
+- **Python 3.10.** Other versions may work but are not tested. Make a fresh environment for PyTO-AD rather than
+  installing into a base or system Python: some dependencies have no ready-made packages for newer Pythons on every
+  platform, and a base environment that is not writeable makes pip install for the user only, with its commands
+  outside `PATH`.
+- **conda** (Anaconda, Miniconda or Miniforge). The GUI launcher `run_gui.py` looks for a conda environment named
+  **`PyToLib`** (set `PYTO_CONDA_ENV` to use another name).
+- **Operating system:** tested on Linux (Ubuntu, x86-64, Python 3.10.19); all results in the paper were produced
+  there. The code also targets Windows and macOS, but they are not part of the release tests.
+- **macOS:** the PARDISO solver comes from `pypardiso`, which needs Intel's MKL library; it is not installed on
+  macOS, and PyTO-AD uses SciPy's direct solver (`Solvers.SPSOLVE`) instead. See [Linear solvers](#linear-solvers).
+- **Pinned versions:** `requirements-lock.txt` lists the exact package versions of the tested environment
+  (`pip install -r requirements-lock.txt`). With newer `pyvista` releases the voxel meshes differ slightly from the
+  tested ones (see [Updating](#updating)).
 - **Memory:** a few GB for problems up to about 100 000 degrees of freedom.
 
-## Steps
-
+## A. Clone the repository
 1. Get the code:
    ```bash
    git clone https://github.com/UW-ERSL/PyTO-AD
    cd PyTO-AD
    ```
-
 2. Create and activate the environment:
    ```bash
    conda create -n PyToLib python=3.10
    conda activate PyToLib
    ```
-
-3. Optional but recommended: install the **CPU build of PyTorch** first. It is much smaller than the default GPU build, and PyTO doesn't need a GPU.
+3. Optional but recommended: install the **CPU build of PyTorch** first. It is much smaller than the default GPU
+   build, and PyTO-AD doesn't need a GPU.
    ```bash
    pip install --index-url https://download.pytorch.org/whl/cpu torch
    ```
-
-4. Install PyTO's dependencies:
+4. Install the dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt          # requirements-dev.txt adds pytest, for the test suite
+   pip install -e .                         # optional: `import pyto` from anywhere, and the pyto-gui command
    ```
-   For running the test suite too, use `pip install -r requirements-dev.txt` instead. It includes everything above plus pytest.
-
 5. Check the installation:
    ```bash
    python run_gui.py --check
@@ -41,28 +55,70 @@ This page sets up a Python environment for PyTO and checks that it works. It is 
    ```
    - The first command should print `OK: ... has all GUI modules.`
    - The second runs a small optimization in about 10 seconds and writes `quickstart_topology.png`.
+6. Start the GUI:
+   ```bash
+   python run_gui.py
+   ```
+   Any Python can run it: if the current one lacks the GUI's modules, it restarts itself in the `PyToLib`
+   environment. It adds `src/` to the import path, so no `PYTHONPATH` is needed. See
+   [Quick start: GUI](quickstart-gui.md).
 
-## Install with pip from GitHub
-Use this to run PyTO-AD on your own STL parts, from Python or the GUI, without cloning the repository.
+## B. Install with pip from GitHub
+Use this to run PyTO-AD on your own STL parts without cloning the repository.
 
-1. Optional: install the CPU build of PyTorch first (step 3 above).
+1. Create and activate a fresh environment (as in A, step 2), and optionally install the CPU build of PyTorch
+   (A, step 3).
 2. Install the package:
    ```bash
    pip install "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
    ```
-   To install a branch or a tagged release, add it after the URL, e.g. `...PyTO-AD.git@v1.0`.
+   This installs the `main` branch. For another branch or a tagged release, add it after the URL, e.g.
+   `"pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git@v1.0"`.
 3. Start the GUI with `pyto-gui`, or use the library from Python: the package is `pyto-ad`, imported as `pyto`.
+4. Check what is installed:
+   ```bash
+   pip show pyto-ad
+   ```
+
+If `pyto-gui` is not found, the install went into a user folder that is not on `PATH` (pip says so in a warning);
+activate the environment you installed into, or run `python -m pyto.gui.PyTOGUI` instead.
 
 What you get and what you don't:
 
-| Works after a pip install | Needs a clone (`pip install -e .`) |
+| Works after a pip install | Needs a clone (A) |
 |---|---|
-| Voxel meshing of your STL, FE solvers, MMA and OC | Tutorial and benchmark problems (`getStructuralTOProblem`, ...) |
+| Voxel meshing of your STL, FE solvers, MMA | Tutorial and benchmark problems (`getStructuralTOProblem`, ...) |
 | AD gradients, expressions, `OptimizationSpec`, `check_gradient` | `docs/examples` quick-start scripts |
 | Analytical gradients, STL recovery, VTU export | The benchmark sweep and the paper's studies and figures |
 | The GUI (`pyto-gui`) | The test suite |
 
 The right-hand column reads its STL files from `Models/` in the repository, which the package does not include.
+
+## Updating
+**A clone (A):**
+```bash
+cd PyTO-AD
+git pull
+pip install -r requirements.txt            # only needed when requirements.txt changed
+```
+With `pip install -e .` the package follows the folder, so nothing else is needed.
+
+**A pip install (B):** reinstall from GitHub. The version number may not have changed, so a plain
+`pip install --upgrade` can skip it; `--force-reinstall` makes pip fetch the new code, and `--no-deps` keeps it
+from downloading PyTorch and the other dependencies again:
+```bash
+conda activate PyToLib                     # the environment you installed into
+pip install --force-reinstall --no-deps "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
+```
+Add `@<branch or tag>` after the URL if you installed one (step B2). If the update also needs newer dependencies,
+leave out `--no-deps`.
+
+**pyvista:** PyTO-AD meshes STL files with `pyvista.voxelize` while that function exists (pyvista 0.46 and
+earlier, as tested). Newer pyvista releases remove it; PyTO-AD then uses `DataSetFilters.voxelize` on the same
+grid, which keeps slightly fewer boundary voxels, so results differ a little from the tested ones. To reproduce the
+published results exactly, install the pinned versions (`pip install -r requirements-lock.txt`).
+
+**Uninstalling (B):** `pip uninstall pyto-ad`.
 
 ## Optional packages
 Listed at the end of `requirements.txt`; install them only if you need them.
