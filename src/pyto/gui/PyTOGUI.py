@@ -472,6 +472,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.message_text.setStyleSheet("""
             QTextEdit {
                 background-color: #F0F0F0;
+                color: #000000;
                 font-family: 'Segoe UI';
                 font-size: 10pt;
             }
@@ -490,9 +491,11 @@ class MainWindow(QtWidgets.QMainWindow):
         status_bar.setStyleSheet("""
             QStatusBar {
                 background-color: #F0F0F0;
+                color: #000000;
                 font-family: 'Segoe UI';
                 font-size: 9pt;
             }
+            QStatusBar QLabel { color: #000000; }
         """)
         
         labels_config = [
@@ -6371,7 +6374,18 @@ def main():
         # The GUI is drawn for a light theme (light panel backgrounds); in macOS dark mode Qt would switch the text to
         # white on those panels. Fusion with Qt's default light palette keeps it readable in both modes.
         app.setStyle("Fusion")
-        app.setPalette(app.style().standardPalette())
+        from PyQt5.QtGui import QColor, QPalette
+        pal = QPalette()
+        for role, color in ((QPalette.Window, "#EFEFEF"), (QPalette.WindowText, "#000000"), (QPalette.Base, "#FFFFFF"),
+                            (QPalette.AlternateBase, "#F5F5F5"), (QPalette.Text, "#000000"),
+                            (QPalette.Button, "#EFEFEF"), (QPalette.ButtonText, "#000000"),
+                            (QPalette.ToolTipBase, "#FFFFDC"), (QPalette.ToolTipText, "#000000"),
+                            (QPalette.PlaceholderText, "#808080"), (QPalette.Highlight, "#308CC6"),
+                            (QPalette.HighlightedText, "#FFFFFF"), (QPalette.BrightText, "#FF0000")):
+            pal.setColor(role, QColor(color))
+        for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
+            pal.setColor(QPalette.Disabled, role, QColor("#A0A0A0"))
+        app.setPalette(pal)
     app.setStyleSheet("* { font-size: 10pt; }")
     window = MainWindow()
     window.show()
