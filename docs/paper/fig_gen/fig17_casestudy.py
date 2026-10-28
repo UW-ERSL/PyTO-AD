@@ -2,9 +2,10 @@
 
 Top: ThreeHoleBracketThick, (a) voxel design (density > 0.5), (b) recovered STL, (c) its 10-node tetrahedral mesh
 (corner nodes drawn), same view as Fig. 1. Bottom: the stress-designed L-bracket, von Mises stress on one colour
-scale, (d) voxel design (element centres), (e) recovered part (largest of the 4 Gauss-point values per tetrahedron).
-The scale stops at 4 MPa (the voxel design peaks at 3.1 MPa); the colour bar's arrow marks higher values, which the
-recovered part reaches at a sharp edge (28.8 MPa).
+scale, (d) voxel design (element centres), (e) recovered part, the tetrahedral stress averaged over 5 mm cubes
+(body_fitted_study.PLOT_AVERAGE_CUBE): the raw values spike at sharp creases and tiny surface triangles of the
+recovered part, where the mesh is refined to ~0.01 mm; those spikes measure the mesh, not the part. The scale stops at
+4 MPa; the colour bar's arrow marks higher values.
 
 Run from docs/paper/fig_gen:  python fig17_casestudy.py  ->  ../figures/generated/fig17_casestudy.pdf
 """
@@ -60,7 +61,7 @@ def lbracket():
     out.append(shot(p))
     import pyvista as pv
     t = pv.read(os.path.join(case, "tet_mesh.vtu"))
-    t.cell_data["vm"] = np.load(os.path.join(case, "tet_von_mises_elem.npy")) / 1e6
+    t.cell_data["vm"] = np.load(os.path.join(case, "tet_von_mises_elem_averaged.npy")) / 1e6
     p = plotter()
     p.add_mesh(t.extract_surface(), scalars="vm", **bar)
     camera(p, lo, hi, VIEW_LB, UP_LB)

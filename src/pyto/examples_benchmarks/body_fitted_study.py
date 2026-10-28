@@ -380,6 +380,57 @@ def _stress_stats(v, w):
             "vm_p999": _wpercentile(v, w, 99.9), "vm_max": float(v.max())}
 
 
+# The tet stress has sub-millimetre spikes (sharp creases and tiny triangles of the recovered surface, where TetGen
+# refines to ~0.01 mm): their maximum measures the mesh, not the part, and a voxel element (~20 mm) cannot see them.
+# So the tet stress is also compared at the voxel model's resolution, averaged (volume-weighted) over the cells of
+# the voxel grid, and the plotted field is averaged over PLOT_AVERAGE_CUBE cubes, which removes the spikes but keeps
+# the field smooth. The raw tet values are reported as well.
+PLOT_AVERAGE_CUBE = 5e-3     # m
+_HEX_SIGN = np.array([[-1, 1, 1, -1, -1, 1, 1, -1], [-1, -1, 1, 1, -1, -1, 1, 1], [-1, -1, -1, -1, 1, 1, 1, 1]], float)
+
+
+def _hex_von_mises_points(fe, sol, points):
+    """Von Mises stress (len(points), n_elems) of a solid hex8 design at natural points (xi, eta, zeta), with the
+    strain and stress formulas of HexStructuralFEA.postprocess (whose centre value is points = [(0, 0, 0)])."""
+    from pyto.physics import hex_element_stiffness
+    edof = fe.mesh.edofMat
+    U = [sol[edof[:, k::3]].T for k in range(3)]
+    D = hex_element_stiffness.isotropic_constitutive_matrix(fe.mat_prop.youngs_modulus, fe.mat_prop.poissons_ratio)
+    out = []
+    for pt in points:
+        a = 1 + _HEX_SIGN * np.asarray(pt, float)[:, None]
+        G = np.stack([_HEX_SIGN[0] * a[1] * a[2], _HEX_SIGN[1] * a[0] * a[2], _HEX_SIGN[2] * a[0] * a[1]]) / 4.0
+        G = G / np.asarray(fe.mesh.elem_size, float)[:, None]
+        ug, vg, wg = (G @ u for u in U)
+        st = np.stack([ug[0], vg[1], wg[2], ug[1] + vg[0], ug[2] + wg[0], vg[2] + wg[1]], axis=1) @ D.T
+        out.append(np.sqrt(0.5 * ((st[:, 0] - st[:, 1]) ** 2 + (st[:, 1] - st[:, 2]) ** 2 + (st[:, 2] - st[:, 0]) ** 2)
+                           + 3 * (st[:, 3] ** 2 + st[:, 4] ** 2 + st[:, 5] ** 2)))
+    return np.array(out)
+
+
+def _cell_average(v, w, xyz, origin, size):
+    """Volume-weighted average of v over the cells of a grid (origin, size): (averages, cell volumes, cell index)."""
+    k = np.floor((np.asarray(xyz) - np.asarray(origin)) / np.asarray(size)).astype(np.int64)
+    k -= k.min(0)
+    n = k.max(0) + 1
+    _, inv = np.unique((k[:, 0] * n[1] + k[:, 1]) * n[2] + k[:, 2], return_inverse=True)
+    W = np.bincount(inv, w)
+    return np.bincount(inv, w * v) / W, W, inv
+
+
+def _tet_averaged(vm, w, q, fe_hex):
+    """Tet stress statistics averaged over the voxel grid's cells, and the per-tet plot field averaged over
+    PLOT_AVERAGE_CUBE cubes (vm, w per Gauss point, Gauss-point major, as _tet_von_mises returns them)."""
+    cent = np.asarray(q.node_xyz)[np.asarray(q.elems)[:, :4]].mean(1)
+    xyz = np.tile(cent, (4, 1))
+    lo = np.asarray(fe_hex.mesh.node_xyz).min(0)
+    a, W, _ = _cell_average(vm, w, xyz, lo, fe_hex.mesh.elem_size)
+    out = _stress_stats(a, W)
+    out["averaged_over"] = "voxel grid cells"
+    a5, _, inv = _cell_average(vm, w, xyz, lo, [PLOT_AVERAGE_CUBE] * 3)
+    return out, a5[inv].reshape(4, -1).max(0)
+
+
 def analyze(case):
     import torch
     from pyto.autodiff.material_model import MaterialModel
@@ -399,7 +450,11 @@ def analyze(case):
                 out["optimizer_StressPNorm"] = float(compile_expression("StressPNorm()").fn(sol, x, fe_hex))
             fe_hex.postprocess()
             vm = np.asarray(fe_hex.vonMisesStress, float)[design > 0.5]
-            out.update(_stress_stats(vm, np.ones_like(vm)))
+            out.update(_stress_stats(vm, np.ones_like(vm)))                       # element centres (1 point)
+            g = 1 / np.sqrt(3)
+            vm8 = _hex_von_mises_points(fe_hex, sol.numpy(), [(a, b, c) for c in (-g, g) for b in (-g, g)
+                                                              for a in (-g, g)])[:, design > 0.5].ravel()
+            out["eight_gauss_points"] = _stress_stats(vm8, np.ones_like(vm8))
             if design.min() < 0.5:
                 np.save(_path(case, "hex_von_mises.npy"), np.asarray(fe_hex.vonMisesStress, float))
         return out
@@ -417,6 +472,8 @@ def analyze(case):
         vm, w = _tet_von_mises(q, fe_t)
         res["tet_part"].update(_stress_stats(vm, w))
         np.save(_path(case, "tet_von_mises_elem.npy"), vm.reshape(4, -1).max(0))
+        res["tet_part"]["averaged_on_voxel_grid"], plot_field = _tet_averaged(vm, w, q, fe_hex)
+        np.save(_path(case, "tet_von_mises_elem_averaged.npy"), plot_field)
     import pyvista as pv
     cells = np.hstack([np.full((len(tm.elems), 1), 4), tm.elems[:, :4]]).ravel()
     tet_grid = pv.UnstructuredGrid(cells, np.full(len(tm.elems), pv.CellType.TETRA, dtype=np.uint8), tm.node_xyz)
@@ -434,6 +491,7 @@ def analyze(case):
     if CASES[case]["stress"]:
         vm_s, w_s = _tet_von_mises(_q2, fe_s)
         res["tet_full_domain"].update(_stress_stats(vm_s, w_s))
+        res["tet_full_domain"]["averaged_on_voxel_grid"], _ = _tet_averaged(vm_s, w_s, _q2, fe_hex)
 
     calib = res["tet_full_domain"]["compliance"] / res["hex_full_domain"]["compliance"]
     ratio = res["tet_part"]["compliance"] / res["hex_design"]["compliance"]
@@ -446,6 +504,11 @@ def analyze(case):
             c = res["tet_full_domain"][k] / res["hex_full_domain"][k]
             res["comparison"].update({f"{k}_tet_over_hex_part": r, f"{k}_tet_over_hex_full_domain": c,
                                       f"{k}_part_ratio_corrected": r / c})
+            # at the voxel model's resolution: tet averaged over voxel cells against hex at 8 Gauss points
+            ra = res["tet_part"]["averaged_on_voxel_grid"][k] / res["hex_design"]["eight_gauss_points"][k]
+            ca = res["tet_full_domain"]["averaged_on_voxel_grid"][k] / res["hex_full_domain"]["eight_gauss_points"][k]
+            res["comparison"].update({f"{k}_voxel_resolution_part": ra, f"{k}_voxel_resolution_full_domain": ca,
+                                      f"{k}_voxel_resolution_part_corrected": ra / ca})
     with open(_path(case, "analysis.json"), "w") as fh:
         json.dump(res, fh, indent=1)
     print(f"{case}: " + ", ".join(f"{k} {v:.4g}" for k, v in res["comparison"].items()), flush=True)
@@ -563,7 +626,7 @@ def images(case, size=(2400, 1800)):
                                                 line_width=0.4))
     if CASES[case]["stress"] and os.path.exists(_path(case, "hex_von_mises.npy")):
         vm_h = np.load(_path(case, "hex_von_mises.npy"))
-        vm_t = np.load(_path(case, "tet_von_mises_elem.npy"))
+        vm_t = np.load(_path(case, "tet_von_mises_elem_averaged.npy"))     # spikes averaged out (_tet_averaged)
         hg = hexg.extract_cells(np.where(d["final"] > 0.5)[0])
         hg.cell_data["von Mises (MPa)"] = vm_h[d["final"] > 0.5] / 1e6
         tg = pv.read(_path(case, "tet_mesh.vtu"))
