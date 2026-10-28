@@ -243,7 +243,9 @@ def runTOMethodOnBenchmarks(optimizationMethod, problems_override: list = None, 
 			_record_result(output_dir, optimizationMethod, {
 				'name': to_problem.name,
 				'comment': to_params.Comment,
-				'ndof': 3*fe_solver.mesh.num_nodes,
+				# DOF per node: 3 structural, 1 thermal, 3 + 1 thermo-structural (displacement and temperature)
+				'ndof': {FEA_MODE.STRUCTURAL: 3, FEA_MODE.THERMAL: 1, FEA_MODE.THERMO_STRUCTURAL: 4}[feaMode]
+				        * fe_solver.mesh.num_nodes,
 				'volfrac': history['volfrac'][-1],
 				'objective': history['objective'][-1],
 				'#FEAs': nFEAs,

@@ -54,3 +54,14 @@ for ax, (_name, value) in zip(fig.axes, [v for pr in PAIRS for v in pr]):
     im = ax.get_images()[0].get_array()                                    # centred in the white headroom
     ax.text(im.shape[1] / 2, int(0.075 * im.shape[1]) / 2, f"$J$ = {value}", ha="center", va="center", fontsize=8)
 save(fig, "fig15_thermostructural")
+
+# Tutorial problems at a glance (Sect. 8.1): eight compliance designs of the sweep, PyTO's own renders (elements with
+# density above 0.5), each cropped to its part. Row 1: 3D problems; row 2: EdgeCantilever (3D) and three 2.5D STL
+# problems. GEGrabCAD, ThreeHoleBracketThick and the thermal problems are shown elsewhere or left out.
+GALLERY = [("Structural-Compliance3D", "Table"), ("Structural-Compliance3D", "LBracketThickMidLoad"),
+           ("Structural-Compliance3D", "LBracketThickTopLoad"), ("Structural-Compliance3D", "Multiload"),
+           ("Structural-Compliance3D", "EdgeCantilever"), ("Structural-Compliance2.5D_2", "ThreeHoleBracket"),
+           ("Structural-Compliance2.5D_2", "TorquePlate"), ("Structural-Compliance2.5D_1", "Mitchell")]
+fig = panel_grid([img(g, n) for g, n in GALLERY], [f"({chr(97 + i)})" for i in range(len(GALLERY))], ncols=4,
+                 width=TEXT_WIDTH, gap=0.15)
+save(fig, "fig_sweep_gallery_compliance")
