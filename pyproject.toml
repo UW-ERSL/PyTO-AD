@@ -3,9 +3,9 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyto"
+name = "pyto-ad"                     # distribution name; the import name is pyto
 version = "0.1.0"
-description = "PyTO: 3D topology optimization on voxel meshes from STL files, with automatic differentiation"
+description = "PyTO-AD: 3D topology optimization on voxel meshes from STL files, with automatic differentiation"
 readme = "Readme.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -16,6 +16,10 @@ dependencies = [
     "tetgen", "pyvista>=0.45", "vtk", "PyQt5", "pyvistaqt",
 ]
 
+[project.urls]
+Repository = "https://github.com/UW-ERSL/PyTO-AD"
+Documentation = "https://github.com/UW-ERSL/PyTO-AD/tree/main/docs"
+
 [project.optional-dependencies]
 dev = ["pytest", "ipykernel"]
 
@@ -25,6 +29,9 @@ pyto-gui = "pyto.gui.PyTOGUI:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["pyto*"]
+
+[tool.setuptools.package-data]
+"pyto.gui" = ["*.png"]                # GUI icons
 
 # The benchmark problems read their STL files from Models/ in the repository, next to src/: use an editable install
 # (pip install -e .) inside a checkout to run them; a plain `pip install .` provides the library.

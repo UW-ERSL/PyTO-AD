@@ -51,6 +51,18 @@ pip install -e .                       # optional: makes `import pyto` work with
 ```
 Details (CPU-only PyTorch, macOS, optional packages): [Installation](docs/getting-started/installation.md).
 
+### Install with pip from GitHub
+To use PyTO-AD on your own STL parts, from Python or the GUI, without cloning:
+```bash
+pip install --index-url https://download.pytorch.org/whl/cpu torch     # optional: CPU-only PyTorch, much smaller
+pip install "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
+pyto-gui                                                                # start the GUI
+```
+The package is `pyto-ad`; in Python it is imported as `pyto`. This install gives the whole library (FE solvers,
+MMA, AD gradients through the sparse solve, expressions and `check_gradient`, STL recovery) and the GUI. The
+tutorial and benchmark problems, the quick-start scripts and the paper's studies read their STL files from
+`Models/` in the repository, so they need a clone with `pip install -e .` (above).
+
 ## Quick start: code
 ```python
 from pyto.autodiff.sparse_solve import Solvers

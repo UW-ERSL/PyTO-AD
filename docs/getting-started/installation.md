@@ -42,6 +42,28 @@ This page sets up a Python environment for PyTO and checks that it works. It is 
    - The first command should print `OK: ... has all GUI modules.`
    - The second runs a small optimization in about 10 seconds and writes `quickstart_topology.png`.
 
+## Install with pip from GitHub
+Use this to run PyTO-AD on your own STL parts, from Python or the GUI, without cloning the repository.
+
+1. Optional: install the CPU build of PyTorch first (step 3 above).
+2. Install the package:
+   ```bash
+   pip install "pyto-ad @ git+https://github.com/UW-ERSL/PyTO-AD.git"
+   ```
+   To install a branch or a tagged release, add it after the URL, e.g. `...PyTO-AD.git@v1.0`.
+3. Start the GUI with `pyto-gui`, or use the library from Python: the package is `pyto-ad`, imported as `pyto`.
+
+What you get and what you don't:
+
+| Works after a pip install | Needs a clone (`pip install -e .`) |
+|---|---|
+| Voxel meshing of your STL, FE solvers, MMA and OC | Tutorial and benchmark problems (`getStructuralTOProblem`, ...) |
+| AD gradients, expressions, `OptimizationSpec`, `check_gradient` | `docs/examples` quick-start scripts |
+| Analytical gradients, STL recovery, VTU export | The benchmark sweep and the paper's studies and figures |
+| The GUI (`pyto-gui`) | The test suite |
+
+The right-hand column reads its STL files from `Models/` in the repository, which the package does not include.
+
 ## Optional packages
 Listed at the end of `requirements.txt`; install them only if you need them.
 
