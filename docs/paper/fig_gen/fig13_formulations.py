@@ -9,13 +9,13 @@ import os
 
 import numpy as np
 
-from _render import add_design, add_load_arrows, camera, hex_grid, panel_grid, plotter, shot
+from _render import README_VIEW, add_design, add_load_arrows, camera, hex_grid, panel_grid, plotter, shot
 from _style import REPO, TEXT_WIDTH, save
 
 SHOWCASE = os.path.join(REPO, "Results", "AD_Showcase")
 CASES = [("LBracket_compliance", "(a)"), ("LBracket_stress", "(b)"), ("LBracket_displacement", "(c)"),
          ("LBracket_mass", "(d)")]           # formulas: in the caption (FIGURE_GUIDE.md)
-VIEW = (-0.85, 0.55, 1.0)                     # shows the inner members and the loaded foot
+VIEW = README_VIEW                            # the README GIFs' view of the L-bracket
 
 
 def render(case):

@@ -20,6 +20,11 @@ def plotter(window=WINDOW):
     return p
 
 
+# The view of the README GIFs and the AD showcase (pyto.examples_benchmarks.ad_showcase): +y up, so the L-bracket
+# stands upright and loads in -y point down; seen from above the front corner. Used for every 3D benchmark part.
+README_VIEW, README_UP = (1.0, 0.75, 1.35), (0, 1, 0)
+
+
 def camera(p, bounds_lo, bounds_hi, direction, up, parallel=False, distance=3.0):
     lo, hi = np.asarray(bounds_lo, float), np.asarray(bounds_hi, float)
     c = 0.5 * (lo + hi)

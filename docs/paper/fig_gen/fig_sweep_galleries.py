@@ -62,6 +62,22 @@ GALLERY = [("Structural-Compliance3D", "Table"), ("Structural-Compliance3D", "LB
            ("Structural-Compliance3D", "LBracketThickTopLoad"), ("Structural-Compliance3D", "Multiload"),
            ("Structural-Compliance3D", "EdgeCantilever"), ("Structural-Compliance2.5D_2", "ThreeHoleBracket"),
            ("Structural-Compliance2.5D_2", "TorquePlate"), ("Structural-Compliance2.5D_1", "Mitchell")]
-fig = panel_grid([img(g, n) for g, n in GALLERY], [f"({chr(97 + i)})" for i in range(len(GALLERY))], ncols=4,
-                 width=TEXT_WIDTH, gap=0.15)
+# The sweep drew its 3D pictures with z up, which lays the thick L-brackets on their side. These four are redrawn from
+# their designs (run_sweep_designs.py, the sweep's settings) in the view of the README GIFs.
+REDRAWN = {"LBracketThickMidLoad", "LBracketThickTopLoad", "Multiload", "EdgeCantilever"}
+
+
+def redrawn(name):
+    from _render import README_UP, README_VIEW, add_design, camera, hex_grid, plotter, shot
+    from _style import CACHE
+    d = dict(np.load(os.path.join(CACHE, f"sweep_{name}.npz")))
+    xyz = d["node_xyz"]
+    p = plotter()
+    add_design(p, hex_grid(xyz, d["elems"]), d["x"], d["elems"], fixed=None, edges=True)
+    camera(p, xyz.min(0), xyz.max(0), README_VIEW, README_UP)
+    return shot(p)
+
+
+fig = panel_grid([redrawn(n) if n in REDRAWN else img(g, n) for g, n in GALLERY],
+                 [f"({chr(97 + i)})" for i in range(len(GALLERY))], ncols=4, width=TEXT_WIDTH, gap=0.15)
 save(fig, "fig_sweep_gallery_compliance")

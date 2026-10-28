@@ -12,14 +12,14 @@ import os
 
 import numpy as np
 
-from _render import EDGE, LIGHT, add_design, camera, hex_grid, plotter, shot
+from _render import EDGE, LIGHT, README_UP, README_VIEW, add_design, camera, hex_grid, plotter, shot
 from _style import INK, MATERIAL, REPO, TEXT_WIDTH, save
 
 BF = os.path.join(REPO, "Results", "BodyFitted")
 VMAX = 4.0                                     # MPa
 CMAP = "viridis"
 VIEW_3H, UP_3H = (0.42, -0.62, 1.0), (0, 1, 0)
-VIEW_LB, UP_LB = (-0.85, 0.55, 1.0), (0, 1, 0)
+VIEW_LB, UP_LB = README_VIEW, README_UP              # the README GIFs' view of the L-bracket
 
 
 def threehole():
