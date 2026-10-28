@@ -915,6 +915,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 child.update_checkbox_states()
 
     #Window opening methods
+    def _raise_if_open(self, attr):
+        """If the non-modal window stored in self.<attr> is open, bring it to the front and return True, so that a
+        second click on its button does not open a second copy (load windows stay non-modal: they pick faces in the
+        3D view)."""
+        w = getattr(self, attr, None)
+        try:
+            if w is not None and w.isVisible():
+                w.showNormal()
+                w.raise_()
+                w.activateWindow()
+                return True
+        except RuntimeError:                      # the Qt object was already deleted
+            pass
+        return False
+
     def open_units_window(self):
         dialog = UnitsWindow(self, self.settings)
         dialog.exec_()
@@ -928,18 +943,26 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.exec_()
 
     def open_structural_loads_window(self):
+        if self._raise_if_open("structural_loads_window"):
+            return
         self.structural_loads_window = StructuralLoadsWindow(self)
         self.structural_loads_window.show()
 
     def open_thermal_loads_window(self):
+        if self._raise_if_open("thermal_loads_window"):
+            return
         self.thermal_loads_window = ThermalLoadsWindow(self)
         self.thermal_loads_window.show()
 
     def open_analysis_window(self):
-        dialog = AnalysisWindow(self)
-        dialog.show()
+        if self._raise_if_open("_analysis_dialog"):
+            return
+        self._analysis_dialog = AnalysisWindow(self)
+        self._analysis_dialog.show()
 
     def open_topopt_options_window(self):
+        if self._raise_if_open("topopt_options_window"):
+            return
         # Only remove mesh/analysis/result actors, keep geometry, loads, constraints, and info
         keep_names = {
             "geometry_info",
@@ -989,6 +1012,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topopt_options_window.show()
 
     def open_structural_topopt_window(self):
+        if self._raise_if_open("structural_topopt_window"):
+            return
         self.structural_topopt_window = StructuralTopOptWindow(self)
         self.structural_topopt_window.show()
 
@@ -997,10 +1022,14 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.exec_()
 
     def open_display_options_window(self):
-        dialog = DisplayOptionsWindow(self)
-        dialog.show()
+        if self._raise_if_open("_display_options_dialog"):
+            return
+        self._display_options_dialog = DisplayOptionsWindow(self)
+        self._display_options_dialog.show()
 
     def open_topopt_results_window(self):
+        if self._raise_if_open("topopt_results_window"):
+            return
         self.topopt_results_window = TopOptResultsWindow(self)
         self.topopt_results_window.show()
 
