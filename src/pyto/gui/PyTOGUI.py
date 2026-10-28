@@ -643,6 +643,23 @@ class MainWindow(QtWidgets.QMainWindow):
         if value:
             self.update_workflow_step('topopt_options_defined')
 
+    def refresh_loads_state(self):
+        """Recompute the load flags from the stored boundary conditions after one was deleted. A step that is no
+        longer complete goes back to its not-ready icon (the reverse of handle_structural_loads_change and
+        handle_thermal_loads_applied); Analysis / TopOpt Options need structural or thermal loads again."""
+        loads = self.LivVar['structural_loads']
+        loads['forces_applied'] = bool(self.force_data)
+        loads['fixed_constraints'] = bool(self.constraint_data)
+        loads['applied'] = loads['forces_applied'] and loads['fixed_constraints']
+        thermal_loads = getattr(getattr(self, "thermal_loads_window", None), "thermal_loads", None) or {}
+        self.LivVar['thermal_loads']['applied'] = any(
+            thermal_loads.get(k) for k in ("fixed_temps", "heat_sources", "total_heat_sources"))
+        self.set_sidebar_icon("Structural Loads", "check" if loads['applied'] else "arrow")
+        self.set_sidebar_icon("Thermal Loads", "check" if self.LivVar['thermal_loads']['applied'] else "arrow")
+        if not (loads['applied'] or self.LivVar['thermal_loads']['applied']):
+            for name in ("Analysis", "TopOpt Options"):
+                self.set_sidebar_icon(name, "cross")
+
     def update_workflow_step(self, step_key):
         """Update workflow step and associated UI elements"""
         step_config = self.WORKFLOW_STEPS.get(step_key, {})
@@ -1563,6 +1580,49 @@ class ScientificDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         else:
             return f"{value:.2f}"
 #---------------------------------------------------------------------------
+def bc_extent(entry):
+    """Where a boundary condition acts, for the Applied lists: '12 triangles', '3 nodes + 1 box(es)'."""
+    parts = [f"{len(entry[k])} {label}" for k, label in
+             (("triangles", "triangles"), ("points", "nodes"), ("regions", "box(es)")) if entry.get(k)]
+    return " + ".join(parts) or "no faces"
+
+
+def add_applied_list(dialog, layout, delete):
+    """'Applied' group of a loads window: one row per applied boundary condition (its key in the item data) with
+    Delete selected / Delete all buttons, which call delete(keys). Returns the QListWidget."""
+    group = QtWidgets.QGroupBox("Applied")
+    box = QtWidgets.QVBoxLayout(group)
+    applied = QtWidgets.QListWidget()
+    applied.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+    applied.setMaximumHeight(120)
+    box.addWidget(applied)
+    keys = lambda items: [item.data(QtCore.Qt.UserRole) for item in items]
+
+    def delete_all():
+        if applied.count() and QtWidgets.QMessageBox.question(
+                dialog, "Delete all", f"Delete all {applied.count()} applied boundary conditions?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+            delete(keys(applied.item(i) for i in range(applied.count())))
+
+    row = QtWidgets.QHBoxLayout()
+    for text, slot in (("Delete selected", lambda: delete(keys(applied.selectedItems()))),
+                       ("Delete all", delete_all)):
+        button = QtWidgets.QPushButton(text)
+        button.clicked.connect(slot)
+        row.addWidget(button)
+    box.addLayout(row)
+    layout.addWidget(group)
+    return applied
+
+
+def fill_applied_list(applied, rows):
+    """Show (text, key) rows in an Applied list."""
+    applied.clear()
+    for text, key in rows:
+        item = QtWidgets.QListWidgetItem(text)
+        item.setData(QtCore.Qt.UserRole, key)
+        applied.addItem(item)
+#---------------------------------------------------------------------------
 class StructuralLoadsWindow(QtWidgets.QDialog):
     # Class-level configuration
     FORCE_RANGE = (-1e6, 1e6)
@@ -1650,6 +1710,8 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
         self.create_force_controls(layout)
         self.create_torque_controls(layout)
         self.create_buttons(layout)
+        self.applied_list = add_applied_list(self, layout, self.delete_loads)
+        self.refresh_applied_list()
 
     def create_load_set_control(self, parent_layout):
         """Create load set spinbox control"""
@@ -1803,6 +1865,57 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
                 handler_method(config)
             else:
                 handler_method()
+            self.refresh_applied_list()
+
+    def applied_rows(self):
+        """(text, key) per applied support and load, named as in the TopOpt expressions (Support1.., Load1..)."""
+        unit = self.parent.settings.get_force_unit_string()
+        rows = [(f"Support{i + 1}: {c['type']}, {bc_extent(c)}", ('constraint', i))
+                for i, c in enumerate(self.parent.constraint_data)]
+        for i, f in enumerate(self.parent.force_data):
+            what = (f"Torque {f.get('torque', 0.0):+.4g} {unit}·m" if f.get('type') == 'torque' else
+                    f"Force ({f.get('force_x', 0.0):+.4g}, {f.get('force_y', 0.0):+.4g}, {f.get('force_z', 0.0):+.4g}) {unit}")
+            rows.append((f"Load{i + 1}: {what}, {bc_extent(f)}", ('force', i)))
+        return rows
+
+    def refresh_applied_list(self):
+        fill_applied_list(self.applied_list, self.applied_rows())
+
+    def delete_loads(self, keys):
+        """Delete applied supports / loads (keys: ('constraint' | 'force', index) rows of the Applied list). The
+        remaining ones are renumbered (Support2 becomes Support1, ...), the 3D view is redrawn from the data and the
+        load flags are recomputed."""
+        if not keys:
+            self.parent.message_text.append("Select a support or load in the Applied list to delete it.")
+            return
+        for kind, i in sorted(keys, key=lambda k: k[1], reverse=True):
+            del (self.parent.constraint_data if kind == 'constraint' else self.parent.force_data)[i]
+        self.redraw_loads()
+        self.parent.refresh_loads_state()
+        self.refresh_applied_list()
+        self.parent.message_text.append(f"Deleted {len(keys)} support(s)/load(s); the remaining ones are "
+                                        f"renumbered (Support1.., Load1..).")
+        self.parent.notify_display_options_update()
+
+    def redraw_loads(self):
+        """Redraw all supports, forces and torques from constraint_data / force_data (after a deletion); the
+        support faces (constrained_triangles) are rebuilt from the remaining supports."""
+        p = self.parent
+        for actor in p.force_actors + getattr(p, 'torque_actors', []):
+            p.plotter.remove_actor(actor, reset_camera=False)
+        p.force_actors, p.torque_actors = [], []
+        p.constrained_triangles.clear()
+        p.constrained_triangles.update(t for c in p.constraint_data for t in (c.get('triangles') or []))
+        self.remove_constraint_actors()
+        self.visualize_constraints()
+        for fd in p.force_data:
+            if fd.get('type') == 'torque':
+                self.visualize_torque(fd['axis_point'], fd['direction'], fd['torque'], fd.get('surface_type', 'PLANAR'),
+                                      fd.get('cyl_radius'))
+            else:
+                self._rebuild_force_visualization(fd)
+        p.update_highlights()
+        p.plotter.render()
 
     def get_selected_triangles(self):
         """Get selected triangles with validation"""
@@ -2098,19 +2211,6 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
         if not selected_triangles:
             return
 
-        # Remove previous torque data and actors for these triangles
-        selected_indices = set(tri['index'] for tri in selected_triangles)
-        self.parent.force_data = [
-            fd for fd in self.parent.force_data
-            if not (fd.get('type') == 'torque' and selected_indices.intersection(set(fd['triangles'])))
-        ]
-        if hasattr(self.parent, 'torque_actors'):
-            for actor in self.parent.torque_actors:
-                self.parent.plotter.remove_actor(actor, reset_camera=False)
-            self.parent.torque_actors = []
-        else:
-            self.parent.torque_actors = []
-
         torque_value = self.torque_magnitude_spin.value()
         if abs(torque_value) < 1e-12:
             QtWidgets.QMessageBox.warning(self, "Zero Torque", "Please enter a non-zero torque value.")
@@ -2134,7 +2234,12 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
             return
         direction = direction / norm
 
-        # Store torque data
+        # Replace earlier torques on these triangles; the others stay (and stay drawn)
+        selected_indices = set(tri['index'] for tri in selected_triangles)
+        self.parent.force_data = [
+            fd for fd in self.parent.force_data
+            if not (fd.get('type') == 'torque' and selected_indices.intersection(set(fd['triangles'])))
+        ]
         torque_info = {
             'triangles': [tri['index'] for tri in selected_triangles],
             'triangle_data': selected_triangles,
@@ -2142,13 +2247,14 @@ class StructuralLoadsWindow(QtWidgets.QDialog):
             'direction': direction.tolist(),
             'axis_point': axis_point,
             'surface_type': surface_type,
+            'cyl_radius': cyl_radius,
             'type': 'torque',
             'load_set': self.load_set_spin.value()
         }
         self.parent.force_data.append(torque_info)
 
-        # Visualization
-        self.visualize_torque(axis_point, direction, torque_value, surface_type, cyl_radius)
+        # Visualization (all loads: a replaced torque disappears, the other torques stay)
+        self.redraw_loads()
 
         # Message and state update
         force_unit = self.parent.settings.get_force_unit_string()
@@ -2484,8 +2590,10 @@ class ThermalLoadsWindow(QtWidgets.QDialog):
         self.setWindowTitle("Thermal Loads")
 
     def init_data_structures(self):
-        """Initialize thermal loads data structures and actor lists"""
-        self.thermal_loads = {
+        """Initialize thermal loads data structures and actor lists. The loads are stored on this window: a window
+        opened again takes over those of the previous one (parent.thermal_loads_window), so they are kept."""
+        previous = getattr(self.parent, "thermal_loads_window", None)
+        self.thermal_loads = getattr(previous, "thermal_loads", None) or {
             "fixed_temps": [],
             "heat_sources": [], 
             "total_heat_sources": []
@@ -2493,7 +2601,7 @@ class ThermalLoadsWindow(QtWidgets.QDialog):
         
         # Initialize actor lists dynamically from configuration
         for config in self.THERMAL_TYPES.values():
-            setattr(self, config["actor_list"], [])
+            setattr(self, config["actor_list"], list(getattr(previous, config["actor_list"], [])))
 
     def init_ui(self):
         """Initialize user interface"""
@@ -2504,6 +2612,8 @@ class ThermalLoadsWindow(QtWidgets.QDialog):
         self.create_thermal_type_control(layout)
         self.create_thermal_groups(layout)
         self.create_buttons(layout)
+        self.applied_list = add_applied_list(self, layout, self.delete_thermal_loads)
+        self.refresh_applied_list()
 
     def create_selection_control(self, parent_layout):
         """Create selection mode control"""
@@ -2682,6 +2792,52 @@ class ThermalLoadsWindow(QtWidgets.QDialog):
         handler_method = getattr(self, handler_name, None)
         if handler_method and callable(handler_method):
             handler_method(config)
+            self.refresh_applied_list()
+
+    def applied_rows(self):
+        """(text, key) per applied thermal load, named as in the TopOpt expressions (FixedTemp1.., HeatSource1..:
+        heat fluxes first, then total heats)."""
+        rows, n_sources = [], 0
+        for name, config in self.THERMAL_TYPES.items():
+            storage = config["storage_list"]
+            for i, load in enumerate(self.thermal_loads.get(storage, [])):
+                if storage == "fixed_temps":
+                    label = f"FixedTemp{i + 1}"
+                else:
+                    n_sources += 1
+                    label = f"HeatSource{n_sources}"
+                rows.append((f"{label}: {name} {self.format_thermal_text(load[config['data_key']], config)}, "
+                             f"{bc_extent(load)}", (storage, i)))
+        return rows
+
+    def refresh_applied_list(self):
+        fill_applied_list(self.applied_list, self.applied_rows())
+
+    def delete_thermal_loads(self, keys):
+        """Delete applied thermal loads (keys: (storage list, index) rows of the Applied list). The remaining ones
+        are renumbered (FixedTemp1.., HeatSource1..), the arrows redrawn and the load flags recomputed."""
+        if not keys:
+            self.parent.message_text.append("Select a thermal load in the Applied list to delete it.")
+            return
+        for storage, i in sorted(keys, key=lambda k: k[1], reverse=True):
+            del self.thermal_loads[storage][i]
+        self.redraw_thermal_loads()
+        self.parent.refresh_loads_state()
+        self.refresh_applied_list()
+        self.parent.message_text.append(f"Deleted {len(keys)} thermal load(s); the remaining ones are renumbered "
+                                        f"(FixedTemp1.., HeatSource1..).")
+        self.parent.notify_display_options_update()
+
+    def redraw_thermal_loads(self):
+        """Redraw all thermal load arrows and labels from thermal_loads."""
+        for config in self.THERMAL_TYPES.values():
+            for actor in getattr(self, config["actor_list"]):
+                self.parent.plotter.remove_actor(actor, reset_camera=False)
+            setattr(self, config["actor_list"], [])
+        for config in self.THERMAL_TYPES.values():
+            for load in self.thermal_loads.get(config["storage_list"], []):
+                self.create_thermal_visualization(load['triangle_data'], load[config["data_key"]], config)
+        self.parent.plotter.render()
 
     def get_selected_triangles(self):
         """Get selected triangles"""
@@ -2974,9 +3130,12 @@ class BodyForceWindow(QtWidgets.QDialog):
         btn_layout = QtWidgets.QHBoxLayout()
         apply_btn = QtWidgets.QPushButton("Apply")
         apply_btn.clicked.connect(self.apply_body_force)
+        clear_btn = QtWidgets.QPushButton("Clear")
+        clear_btn.clicked.connect(self.clear_body_force)
         close_btn = QtWidgets.QPushButton("Close")
         close_btn.clicked.connect(self.close)
         btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(clear_btn)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
 
@@ -2997,6 +3156,18 @@ class BodyForceWindow(QtWidgets.QDialog):
         self.parent.update_LivVar('structural_loads.body_force', True)
         self.parent.set_sidebar_icon("Structural Loads", "check")
         self.parent.set_sidebar_icon("Analysis", "arrow")
+        self.close()
+
+    def clear_body_force(self):
+        """Remove the body force (zero acceleration) and its arrow."""
+        self.parent.body_force = {"X": 0.0, "Y": 0.0, "Z": 0.0}
+        for edit in (self.x_edit, self.y_edit, self.z_edit):
+            edit.setText("0.0")
+        self.clear_body_force_actors()
+        self.parent.plotter.render()
+        self.parent.LivVar['structural_loads']['body_force'] = False
+        self.parent.refresh_loads_state()
+        self.parent.message_text.append("Body force cleared.")
         self.close()
 
     BODY_FORCE_SCALE_FACTOR = 0.25   # arrow length as a fraction of model size
@@ -6264,6 +6435,8 @@ class ProjectsWindow(QtWidgets.QDialog):
                         self.parent.structural_loads_window.visualize_force_arrows(
                             force_info['triangle_data'], force_value, direction, config["color"], axis)
         
+        self.parent.structural_loads_window.refresh_applied_list()
+
         # Update structural loads state
         if self.parent.force_data:
             self.parent.update_LivVar('structural_loads.forces_applied', True)
@@ -6324,6 +6497,8 @@ class ProjectsWindow(QtWidgets.QDialog):
                     self.parent.thermal_loads_window.create_thermal_visualization(
                         load['triangle_data'], load[value_key], config)
         
+        self.parent.thermal_loads_window.refresh_applied_list()
+
         # Update thermal state
         if any(thermal_loads.get(key, []) for key in thermal_types.keys()):
             self.parent.update_LivVar('thermal_loads.applied', True)
