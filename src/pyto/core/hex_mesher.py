@@ -3,19 +3,34 @@
 import dataclasses
 from typing import Optional
 import numpy as np
+import os
 import pyvista as pv # pip install pyvista
 import warnings
 
 
 def _voxelize(stl, elem_size):
-	"""pv.voxelize (deprecated in pyvista 0.46). Its replacement, DataSetFilters.voxelize, uses another algorithm
-	and gives different meshes, so PyTO keeps this one and only hides the deprecation notice.
-	ponytail: breaks when pyvista removes pv.voxelize; then port to DataSetFilters.voxelize and re-baseline."""
-	with warnings.catch_warnings():
-		warnings.filterwarnings("ignore", message=".*pyvista.voxelize.*deprecated")
-		return pv.voxelize(stl, density=elem_size, check_surface=False)
+	"""Voxel mesh (hexahedra) of a closed surface on a grid of spacing elem_size starting at its lower bounds.
+
+	pv.voxelize (deprecated in pyvista 0.46) is used while it is available: the tested meshes and every published
+	result come from it. Newer pyvista versions only have DataSetFilters.voxelize, which keeps the voxels whose
+	centre is inside the surface (pv.voxelize keeps those with any corner inside), so it gives somewhat fewer
+	elements on the same grid. Set PYTO_VOXELIZE=new to use it with any version."""
+	if os.environ.get("PYTO_VOXELIZE", "").lower() != "new" and hasattr(pv, "voxelize"):
+		try:
+			with warnings.catch_warnings():
+				warnings.filterwarnings("ignore", message=".*voxelize.*deprecated")
+				warnings.filterwarnings("ignore", category=DeprecationWarning)
+				return pv.voxelize(stl, density=elem_size, check_surface=False)
+		except Exception:                              # removed, or deprecation turned into an error
+			pass
+	b = np.asarray(stl.bounds)
+	h = np.asarray(elem_size, float)
+	n = np.maximum(np.round((b[1::2] - b[0::2]) / h).astype(int), 1)
+	ref = pv.ImageData(dimensions=n + 1, spacing=h, origin=b[0::2])
+	vox = stl.voxelize(reference_volume=ref)
+	hexa = np.asarray(vox.cell_connectivity).reshape(-1, 8)[:, [0, 1, 3, 2, 4, 5, 7, 6]]   # VTK voxel -> hexahedron order
+	return pv.UnstructuredGrid({pv.CellType.HEXAHEDRON: hexa}, np.asarray(vox.points))
 from scipy.sparse import coo_matrix
-import os
 import time
 from pyto.io.stl_reader import STLGeom
 import enum
