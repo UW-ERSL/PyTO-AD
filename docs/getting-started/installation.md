@@ -21,8 +21,8 @@ Both need the same [requirements](#requirements). If unsure, use A.
 - **Operating system:** tested on Linux (Ubuntu, x86-64, Python 3.10.19); all results in the paper were produced
   there, and the test suite runs there. On Windows (Intel CPU) the GUI and `main.ipynb` have been run; Windows is
   not part of the release tests.
-- **macOS:** untested. The installation below has been made to work on an Apple-silicon Mac and the GUI starts,
-  but loading an STL file does not work there yet, so no problem has been run on macOS. See [macOS](#macos).
+- **macOS:** not part of the release tests. On an Apple-silicon Mac, with the installation below, `main.ipynb`
+  runs and the GUI starts, but loading an STL file in the GUI does not work there yet. See [macOS](#macos).
   PARDISO is not available on macOS (see [Linear solvers](#linear-solvers)).
 - **Pinned versions:** `requirements-lock.txt` lists the exact package versions of the tested environment
   (`pip install -r requirements-lock.txt`). With newer `pyvista` releases the voxel meshes differ slightly from the
@@ -97,8 +97,8 @@ What you get and what you don't:
 The right-hand column reads its STL files from `Models/` in the repository, which the package does not include.
 
 ## macOS
-**Status: untested.** On an Apple-silicon Mac the steps below install PyTO-AD and start the GUI (`pyto-gui`), but
-loading an STL file does not work there yet, so no optimization has been run on macOS. `main.ipynb` has not been run.
+**Status: not part of the release tests.** On an Apple-silicon Mac, with the steps below, `main.ipynb` runs (with
+SciPy's solver) and the GUI (`pyto-gui`) starts, but loading an STL file in the GUI does not work there yet.
 
 What works, in this order:
 1. **Use a native Apple-silicon conda** (Miniforge for arm64). An Intel Anaconda on an Apple-silicon Mac runs every

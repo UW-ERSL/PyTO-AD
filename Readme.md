@@ -71,9 +71,9 @@ studies read their STL files from `Models/` in the repository, so they need a cl
 ([details](docs/getting-started/installation.md#updating)). CPU-only PyTorch, newer `pyvista` versions and optional packages:
 [Installation](docs/getting-started/installation.md).
 
-**Platforms:** tested on Linux. Windows (Intel CPU): the GUI and `main.ipynb` have been run. **macOS is untested**:
-the GUI starts on an Apple-silicon Mac with a native arm64 conda and SciPy/PyTorch from conda-forge, but loading an
-STL file does not work there yet ([macOS steps and known errors](docs/getting-started/installation.md#macos)).
+**Platforms:** tested on Linux. Windows (Intel CPU): the GUI and `main.ipynb` have been run. **macOS** (Apple silicon, native arm64 conda,
+SciPy and PyTorch from conda-forge): `main.ipynb` runs and the GUI starts, but loading an STL file in the GUI does
+not work there yet ([macOS steps and known errors](docs/getting-started/installation.md#macos)).
 
 ## Quick start: code
 ```python
