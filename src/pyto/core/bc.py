@@ -30,7 +30,14 @@ class BC:
 
   @property
   def free_dofs(self)-> np.ndarray:
-    return np.setdiff1d(np.arange(self.num_dofs), self.fixed_dofs)
+    # cached for the fixed dofs it was built from; read-only so a caller cannot change the cached copy
+    key = (self.num_dofs, np.asarray(self.fixed_dofs).tobytes())
+    cache = getattr(self, "_free_dofs_cache", None)
+    if cache is None or cache[0] != key:
+      free = np.setdiff1d(np.arange(self.num_dofs), self.fixed_dofs)
+      free.flags.writeable = False
+      cache = self._free_dofs_cache = (key, free)
+    return cache[1]
 
   def set_force(self, force: np.ndarray):
     """Set the force array.
@@ -185,19 +192,12 @@ def impose_dirichlet_bc(A: spy_sprs.csr_matrix,
   Returns: The modified stiffness matrix and right hand side.
   """
   if (bc.constraint_matrix is  None):
-    A_modified = A.copy()
-    b_modified = b.copy()
+    free = bc.free_dofs
+    # Modify the right hand side (nothing to move over for homogeneous Dirichlet values).
+    b_modified = b - A[:, bc.fixed_dofs] @ bc.dirichlet_values if np.any(bc.dirichlet_values) else b
 
-    # Modify the right hand side.
-    b_modified -= A[:, bc.fixed_dofs] * bc.dirichlet_values
-
-    # Remove rows and columns corresponding to the Dirichlet boundary conditions.
-    A_modified = (
-            A_modified[bc.free_dofs, :][:, bc.free_dofs]
-            )
-    b_modified = b_modified[bc.free_dofs]
-
-    return A_modified, b_modified
+    # Remove rows and columns corresponding to the Dirichlet boundary conditions; the slices copy, A and b stay as given.
+    return A[free, :][:, free], b_modified[free]
   else:
     raise NotImplementedError("impose_dirichlet_bc not implemented for constraint_matrix BCs; see linear_solvers.solver function")
   
