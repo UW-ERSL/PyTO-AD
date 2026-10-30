@@ -108,7 +108,8 @@ class HexThermalFEA:
 #################################################################
   def _solver_options(self):
     """Options for the differentiable solve: the deflation solver and tolerance for DPCG/PCG."""
-    return {"dsolver": getattr(self, "dsolver", None), "rtol": self.kwargs.get("rtol", 1e-8)}
+    return {"dsolver": getattr(self, "dsolver", None), "rtol": self.kwargs.get("rtol", 1e-8),
+            "symmetric": True}       # K is symmetric (Dirichlet rows and columns are replaced symmetrically)
 
   def adjoint_solve(self, rhs):
     """Solve K(x) lam = rhs (numpy) with the matrix and solver of the LAST solve: the same factors

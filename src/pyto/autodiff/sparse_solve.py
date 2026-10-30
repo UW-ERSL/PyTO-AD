@@ -91,6 +91,47 @@ def _direct_solve(
 
 
 _PARDISO_POOL = []   # idle PyPardisoSolver objects: constructing one costs ~0.5 s (MKL set-up), far more than a solve
+# Idle solvers that keep PARDISO's symbolic analysis (fill-reducing ordering, phase 11) of one sparsity pattern, by
+# pattern. An optimization factorizes matrices of one fixed pattern every iteration; the analysis depends only on the
+# pattern (about 6 % of a factorization at 300k dof), so it is done once and each later factorization is numeric only
+# (phase 22). Releasing a factorization frees only its factors (phase 0) and keeps the analysis.
+_PARDISO_ANALYZED: Dict[tuple, list] = {}
+_PARDISO_IDLE_MAX = 8
+
+
+def _pattern_key(A_csr):
+    import zlib
+    return (A_csr.shape, A_csr.nnz, zlib.crc32(np.ascontiguousarray(A_csr.indptr)),
+            zlib.crc32(np.ascontiguousarray(A_csr.indices)))
+
+
+def _pardiso_factorize(A_csr):
+    """A PyPardisoSolver holding the factors of A_csr, and A's pattern key: numeric factorization only (phase 22)
+    when an idle solver already holds the analysis of this pattern, analysis + factorization (phase 12) otherwise."""
+    key = _pattern_key(A_csr)
+    analyzed = _PARDISO_ANALYZED.get(key)
+    if analyzed:
+        solver, phase = analyzed.pop(), 22
+    else:
+        solver, phase = (_PARDISO_POOL.pop() if _PARDISO_POOL else pypardiso.PyPardisoSolver()), 12
+    solver._check_A(A_csr)                          # as PyPardisoSolver.factorize, with the phase chosen here
+    solver.factorized_A = (solver._hash_csr_matrix(A_csr) if A_csr.nnz > solver.size_limit_storage
+                           else A_csr.copy())
+    solver.set_phase(phase)
+    solver._call_pardiso(A_csr, np.zeros((A_csr.shape[0], 1)))
+    return solver, key
+
+
+def _pardiso_release(solver, key):
+    """Free the factors but keep the pattern's analysis for the next factorization of that pattern."""
+    idle = sum(len(v) for v in _PARDISO_ANALYZED.values())
+    if idle < _PARDISO_IDLE_MAX:
+        solver.free_memory(False)                   # phase 0: L and U only
+        _PARDISO_ANALYZED.setdefault(key, []).append(solver)
+    else:
+        solver.free_memory(True)                    # phase -1: everything
+        if len(_PARDISO_POOL) < 8:
+            _PARDISO_POOL.append(solver)
 
 
 class _PardisoFactors:
@@ -106,19 +147,14 @@ class _PardisoFactors:
     object then goes back to a small pool (PyPardisoSolver has no __del__ that would free the factors itself).
     """
 
-    def __init__(self, A_csr):
+    def __init__(self, A_csr, symmetric=None):
         import weakref
         self.A = A_csr
-        self.solver = _PARDISO_POOL.pop() if _PARDISO_POOL else pypardiso.PyPardisoSolver()
-        self.solver.factorize(A_csr)
-        self.symmetric = abs(A_csr - A_csr.T).max() <= 1e-12 * abs(A_csr).max()
-        weakref.finalize(self, _PardisoFactors._release, self.solver)
-
-    @staticmethod
-    def _release(solver):
-        solver.free_memory(True)
-        if len(_PARDISO_POOL) < 8:
-            _PARDISO_POOL.append(solver)
+        self.solver, key = _pardiso_factorize(A_csr)
+        # the FE solvers say their matrices are symmetric (stiffness, conductivity); check only when not told
+        self.symmetric = (bool(symmetric) if symmetric is not None
+                          else abs(A_csr - A_csr.T).max() <= 1e-12 * abs(A_csr).max())
+        weakref.finalize(self, _pardiso_release, self.solver, key)
 
     def solve(self, b):
         return self.solver.solve(self.A, b)     # phase 33: solve with the stored factors
@@ -140,8 +176,8 @@ class _LUFactors:
 class _PardisoSolve:
     """PARDISO factors kept for transposed (adjoint) solves; unsymmetric matrices factorize A^T when asked."""
 
-    def __init__(self, A_csr):
-        self.factors = _PardisoFactors(A_csr)
+    def __init__(self, A_csr, symmetric=None):
+        self.factors = _PardisoFactors(A_csr, symmetric)
 
     def solve(self, b):
         return self.factors.solve(b)
@@ -204,7 +240,7 @@ def _factorize(A_csr, solver_kind, solver_params):
     if solver_kind == "spsolve":
         return _LUFactors(A_csr.tocsc())              # SuperLU wants CSC
     if solver_kind == "pardiso" and pypardiso is not None:
-        return _PardisoSolve(A_csr)
+        return _PardisoSolve(A_csr, solver_params.get("symmetric"))
     if solver_kind in ("dpcg", "pcg"):
         return _IterativeSolve(A_csr, solver_kind, solver_params)
     return _DirectEachTime(A_csr, solver_kind, solver_params)

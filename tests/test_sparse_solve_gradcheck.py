@@ -147,8 +147,8 @@ def test_pardiso_adjoint_reuses_factors_and_matches_spsolve(structural_problem):
     created = []
     original_init = S._PardisoFactors.__init__
 
-    def spy(self, A):
-        original_init(self, A)
+    def spy(self, A, symmetric=None):
+        original_init(self, A, symmetric)
         created.append(weakref.ref(self))
 
     S._PardisoFactors.__init__ = spy
