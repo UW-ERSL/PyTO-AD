@@ -199,15 +199,15 @@ class _IterativeSolve:
         return self.solve(b)          # symmetric
 
 
-def _factorize(A_csc, solver_kind, solver_params):
-    """The solver object for A: solve(b) and solve_transpose(b), reusing whatever the solver can reuse."""
+def _factorize(A_csr, solver_kind, solver_params):
+    """The solver object for A (CSR): solve(b) and solve_transpose(b), reusing whatever the solver can reuse."""
     if solver_kind == "spsolve":
-        return _LUFactors(A_csc)
+        return _LUFactors(A_csr.tocsc())              # SuperLU wants CSC
     if solver_kind == "pardiso" and pypardiso is not None:
-        return _PardisoSolve(A_csc.tocsr())
+        return _PardisoSolve(A_csr)
     if solver_kind in ("dpcg", "pcg"):
-        return _IterativeSolve(A_csc.tocsr(), solver_kind, solver_params)
-    return _DirectEachTime(A_csc, solver_kind, solver_params)
+        return _IterativeSolve(A_csr, solver_kind, solver_params)
+    return _DirectEachTime(A_csr, solver_kind, solver_params)
 
 
 class SparseLinearSolve(torch.autograd.Function):
@@ -219,9 +219,12 @@ class SparseLinearSolve(torch.autograd.Function):
         shape = mtrx.shape
         b_np = b.detach().cpu().numpy()
 
-        A_csc = spy_sprs.coo_matrix(
-            (vals, (idx[0], idx[1])), shape=shape
-        ).tocsc()
+        # A coalesced tensor lists its entries row by row, columns ascending: that is CSR order already, so the
+        # matrix is built without sorting (a COO -> CSC -> CSR round trip sorted all entries twice per solve).
+        indptr = np.zeros(shape[0] + 1, dtype=np.int64)
+        np.cumsum(np.bincount(idx[0], minlength=shape[0]), out=indptr[1:])
+        A_csr = spy_sprs.csr_matrix((vals, idx[1], indptr), shape=shape)
+        A_csr.has_sorted_indices = True
 
         ctx.mtrx_shape = shape
         ctx.b_dtype = b.dtype
@@ -229,7 +232,7 @@ class SparseLinearSolve(torch.autograd.Function):
 
         # One solver object per forward solve: the adjoint (backward) and any analytical-sensitivity solves
         # use the same matrix and the same factors/preconditioner (see FE solvers' adjoint_solve).
-        factorization = _factorize(A_csc, solver_kind, solver_params)
+        factorization = _factorize(A_csr, solver_kind, solver_params)
         x_np = factorization.solve(b_np)
         ctx.factorization = factorization
         keep = solver_params.get("keep")

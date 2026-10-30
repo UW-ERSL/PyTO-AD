@@ -106,11 +106,19 @@ class HexStructuralFEA:
         self._elem_body_force_torch = None
         self._elem_to_node_map_torch = None
     self._spring_K = None
+    self._spring_pos = None
     if getattr(self.mesh, "externalSprings", None):
         ks, dofs = zip(*self.mesh.externalSprings)
-        spring_idx  = torch.tensor([dofs, dofs], dtype=torch.long)
-        spring_vals = torch.tensor(ks, dtype=torch.float64)
-        self._spring_K = (spring_idx, spring_vals)  # store raw parts
+        # a spring adds k to its dof's diagonal entry, which the pattern already stores: find those positions once,
+        # so each solve adds the values in place and K keeps its (coalesced) pattern
+        d = np.asarray(dofs, dtype=np.int64)
+        pos = np.searchsorted(uniq_keys, d * ndof + d)
+        if np.all(pos < len(uniq_keys)) and np.array_equal(uniq_keys[np.minimum(pos, len(uniq_keys) - 1)], d * ndof + d):
+            self._spring_pos = (torch.from_numpy(pos), torch.tensor(ks, dtype=torch.float64))
+        else:                                                   # not on the pattern's diagonal: add them as a matrix
+            spring_idx  = torch.tensor([dofs, dofs], dtype=torch.long)
+            spring_vals = torch.tensor(ks, dtype=torch.float64)
+            self._spring_K = (spring_idx, spring_vals)  # store raw parts
 
     #default camera position
     view_distance = 2.5 * self.mesh.bbox.diag_length
@@ -194,13 +202,16 @@ class HexStructuralFEA:
 
       agg_vals   = torch.zeros(self._n_unique, dtype=dtype, device=device)
       agg_vals.index_add_(0, self._scatter_inverse, vals)         # sum duplicates once
+      if self._spring_pos is not None:                            # external springs, on stored diagonal entries
+          spring_pos, spring_k = self._spring_pos
+          agg_vals = agg_vals.index_add(0, spring_pos.to(device), spring_k.to(device=device, dtype=dtype))
 
       # the index list is np.unique of row*ndof+col: unique and in coalesced order, so later coalesce() calls
       # (Dirichlet BC, solve) need not sort the ~25 entries per DOF again
       self.stiff_mtrx = torch.sparse_coo_tensor(
           self._unique_indices, agg_vals, (ndof, ndof), device=device, dtype=dtype, is_coalesced=True
       )
-      # 3) add external springs (if any), precomputed once in __init__
+      # 3) external springs off the pattern's diagonal (none in the benchmarks), precomputed once in __init__
       if self._spring_K is not None:
           spring_idx, spring_vals = self._spring_K
           spring_K = torch.sparse_coo_tensor(
