@@ -12,6 +12,7 @@ from typing import TypeAlias, Union
 import numpy as np
 import scipy.sparse as spy_sprs
 import scipy.linalg as spy_linalg
+import scipy.sparse.linalg as spy_sparse_linalg
 from pyto.core.hex_mesher import HexMesher
 
 try:
@@ -495,32 +496,37 @@ class DeflationSolver:
 									M: _Array,
 									rtol=1e-8,
 									maxIters=2000,
-									verbose=False):
+									verbose=False,
+									coarse=None):
+		"""coarse: _coarse_space(K, W) when the caller already has it (several solves with the same K, e.g. the
+		forward and adjoint solves of one design); built here otherwise."""
+		if coarse is None:
+			coarse = self._coarse_space(K, W)
 		if self.use_gpu:
-			return self.deflatedPCG_GPU(K, f, W, M, rtol, maxIters, verbose)
+			return self.deflatedPCG_GPU(K, f, W, M, rtol, maxIters, verbose, coarse)
 		else:
-			return self.deflatedPCG_CPU(K, f, W, M, rtol, maxIters, verbose)
+			return self.deflatedPCG_CPU(K, f, W, M, rtol, maxIters, verbose, coarse)
 
 	def _coarse_space(self, K, W):
-		"""(KW)^T and a solver for the coarse matrix E = W^T K W, set up once per deflated solve.
+		"""(KW)^T and a solver for the coarse matrix E = W^T K W.
 
-		E is small and dense (3 rigid-body modes per group), so it is Cholesky-factorized once and every CG iteration
-		does a dense triangular solve. Calling PARDISO here, as before, put MKL's OpenMP threads inside the CG loop
-		next to NumPy's OpenBLAS threads: the two runtimes kept busy-waiting for each other's cores, and an iteration
+		E couples each group only with its neighbours (3 rigid-body modes per group), so it is kept sparse and
+		factorized once by SuperLU; every CG iteration then does a sparse triangular solve. At 318k dofs (3,672
+		coarse modes, 422k nonzeros) that takes 1 ms against 12 ms for the dense Cholesky solve used before.
+		SuperLU runs in symmetric mode (symmetric ordering, no pivoting; E is SPD), so the solve stays symmetric like
+		a Cholesky solve: with SuperLU's default row pivoting the solve was accurate (residual 1e-11) but not
+		symmetric, and CG diverged for a design whose E had condition number 3e11.
+		SuperLU is single-threaded: calling PARDISO here, as before that, put MKL's OpenMP threads inside the CG loop
+		next to NumPy's OpenBLAS threads, the two runtimes kept busy-waiting for each other's cores, and an iteration
 		took ~65 ms instead of ~15 ms at 109k dofs. K is symmetric, so W^T K z = (KW)^T z, which saves one product
 		with K per iteration.
 		"""
 		KW = (K @ W).tocsr()
 		KWT = KW.transpose().tocsr()
-		E = (W.transpose() @ KW).toarray()
-		E = (E + E.T) / 2
-		E[np.diag_indices_from(E)] += 1e-10  # numerical stability (as before)
-		try:
-			factor = spy_linalg.cho_factor(E, lower=True, check_finite=False)
-			coarse_solve = lambda rhs: spy_linalg.cho_solve(factor, rhs, check_finite=False)
-		except np.linalg.LinAlgError:          # E not numerically positive definite: LU instead
-			factor = spy_linalg.lu_factor(E, check_finite=False)
-			coarse_solve = lambda rhs: spy_linalg.lu_solve(factor, rhs, check_finite=False)
+		E = W.transpose() @ KW
+		E = (E + E.transpose()) / 2 + 1e-10 * spy_sprs.identity(E.shape[0])   # 1e-10: numerical stability (as before)
+		coarse_solve = spy_sparse_linalg.splu(E.tocsc(), permc_spec="MMD_AT_PLUS_A", diag_pivot_thresh=0.0,
+		                                      options={"SymmetricMode": True}).solve
 		return KWT, coarse_solve
 
 	def deflatedPCG_CPU(self,
@@ -530,13 +536,14 @@ class DeflationSolver:
 									M: _Array,
 									rtol=1e-8,
 									maxIters=2000,
-									verbose=False):
+									verbose=False,
+									coarse=None):
 		"""Deflated Preconditioned Conjugate Gradient.
 
 		Stops when the true residual |f - K x| <= rtol |f| (the same test as SciPy's cg used by PCG); the number of
 		iterations of the last solve is kept in self.last_iterations.
 		"""
-		KWT, coarse_solve = self._coarse_space(K, W)
+		KWT, coarse_solve = coarse if coarse is not None else self._coarse_space(K, W)
 		f_norm = np.linalg.norm(f)
 		self.last_iterations = 0
 		if f_norm == 0.0:
@@ -579,10 +586,11 @@ class DeflationSolver:
 									M: _Array,
 									rtol=1e-8,
 									maxIters=2000,
-									verbose=False):
+									verbose=False,
+									coarse=None):
 		"""deflatedPCG_CPU with the vectors and the products with K, W, (KW)^T and M on the GPU (CuPy). The small
 		coarse solve stays on the CPU (one vector of 3 x groups values each way per iteration)."""
-		KWT, coarse_solve = self._coarse_space(K, W)
+		KWT, coarse_solve = coarse if coarse is not None else self._coarse_space(K, W)
 		f_norm = np.linalg.norm(f)
 		self.last_iterations = 0
 		if f_norm == 0.0:

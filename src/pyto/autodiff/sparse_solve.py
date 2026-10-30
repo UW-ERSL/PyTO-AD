@@ -220,10 +220,14 @@ class _IterativeSolve:
         W = getattr(dsolver, "W", None)
         self.dsolver = dsolver if kind == "dpcg" and W is not None and W.shape[0] == A_csr.shape[0] else None
         self.W = W if self.dsolver is not None else None
+        self.coarse = None            # DPCG coarse space of A, built by the first solve and reused by the adjoint
 
     def solve(self, b):
         if self.dsolver is not None:
-            return self.dsolver.deflatedPCG(self.A, np.asarray(b, dtype=float), W=self.W, M=self.M, rtol=self.rtol)
+            if self.coarse is None:
+                self.coarse = self.dsolver._coarse_space(self.A, self.W)
+            return self.dsolver.deflatedPCG(self.A, np.asarray(b, dtype=float), W=self.W, M=self.M, rtol=self.rtol,
+                                            coarse=self.coarse)
         from scipy.sparse.linalg import cg
         x, info = cg(self.A, b, M=self.M, rtol=self.rtol, maxiter=10 * self.A.shape[0])
         if info != 0:
