@@ -1,10 +1,10 @@
 import numpy as np
 from scipy.sparse import csr_matrix
-import pypardiso # pip install pypardiso
 from scipy.special import roots_legendre
 import numpy as np
 import pyto.solve.deflation as deflation
 import pyto.solve.numpy_backend as linear_solvers
+from pyto.autodiff.sparse_solve import _PardisoFactors
 import pyvista as pv
 from numba import njit
 import time
@@ -59,6 +59,9 @@ class largeDeformationFEA:
         areaof_forceappliedface = self.mesh.bbox.ly*self.mesh.bbox.lz
         self.neuman_force=self.bc.force
         neuman_force_on_face = self.neuman_force*areaof_forceappliedface
+        fixed_dofs = self.bc.fixed_dofs
+        free_dofs = self.free_dof = self.bc.free_dofs
+        nodal_dirichlet_fixed = np.ravel(self.nodal_dirichlet)[fixed_dofs]
         for step in range(1, n_steps + 1):
             if verbose:
                 print(f'Load Step {step}/{n_steps}')
@@ -67,20 +70,12 @@ class largeDeformationFEA:
             err = 1
             while (iter < max_iter) and (err > tol):
                 self.assemble_k()  # Assembles K, M matrices and F vector
-                all_dof = np.arange(n_dof)
-                self.delta_sol = np.zeros(n_dof)
-                self.free_dof = np.setdiff1d(all_dof, self.bc.fixed_dofs)
                 b = self.F - (load_factor * neuman_force_on_face).flatten()
-                fixed_dofs = self.bc.fixed_dofs
-                free_dofs  = self.free_dof
+                u_fixed = -load_factor * nodal_dirichlet_fixed + self.sol[fixed_dofs]
 
-                u_fixed = np.empty_like(fixed_dofs, dtype=b.dtype)
-                for idx, i in enumerate(fixed_dofs):
-                    u_fixed[idx] = -load_factor * self.nodal_dirichlet[i].item() + self.sol[i].item()
-
-                K_global = self.K
-                K_ff = K_global[free_dofs, :][:, free_dofs]
-                K_fd = K_global[free_dofs, :][:, fixed_dofs]
+                K_free_rows = self.K[free_dofs, :]
+                K_ff = K_free_rows[:, free_dofs]
+                K_fd = K_free_rows[:, fixed_dofs]
 
                 b_free = b[free_dofs] - K_fd.dot(u_fixed)
                 if (self.solver == linear_solvers.Solvers.DPCG):
@@ -91,7 +86,8 @@ class largeDeformationFEA:
                                 M = M,
                                 rtol = 1e-8)
                 elif (self.solver == linear_solvers.Solvers.PARDISO):
-                    d_u_free = -pypardiso.spsolve(K_ff, b_free)
+                    # same pattern every Newton step: PARDISO's symbolic analysis is reused, only the numeric factorization reruns
+                    d_u_free = -_PardisoFactors(K_ff, symmetric=False).solve(b_free)
                 else:
                     print('Solver not implemented')
 
@@ -129,11 +125,9 @@ class largeDeformationFEA:
         self.neuman_force=self.bc.force
         self.nodal_dirichlet = self.bc.dirichlet_values
         #neuman_force_on_face = self.neuman_force*areaof_forceappliedface
-        all_dof = np.arange(n_dof)
         self.delta_sol = np.zeros(n_dof)
-        self.free_dof = np.setdiff1d(all_dof, self.bc.fixed_dofs)        
         fixed_dofs = self.bc.fixed_dofs
-        free_dofs  = self.free_dof
+        free_dofs = self.free_dof = self.bc.free_dofs
         load_factor = 1/n_steps
 
         for step in range(1, n_steps + 1):
@@ -156,13 +150,11 @@ class largeDeformationFEA:
                 #     u_fixed[idx] = self.delta_sol[i].item()
 
 
-                K_global = self.K
-                K_ff = K_global[free_dofs, :][:, free_dofs]
-                K_fd = K_global[free_dofs, :][:, fixed_dofs]
-
+                K_free_rows = self.K[free_dofs, :]
+                K_ff = K_free_rows[:, free_dofs]
 
                 if iter == 1:
-                    b[free_dofs] = b[free_dofs] +  K_global[free_dofs, :][:, fixed_dofs].dot(self.delta_sol[fixed_dofs])
+                    b[free_dofs] = b[free_dofs] + K_free_rows[:, fixed_dofs].dot(self.delta_sol[fixed_dofs])
 
                 if (self.solver == linear_solvers.Solvers.DPCG):
                     M = linear_solvers._jacobi_preconditioner(K_ff)
@@ -172,7 +164,7 @@ class largeDeformationFEA:
                                 M = M,
                                 rtol = 1e-8)
                 elif (self.solver == linear_solvers.Solvers.PARDISO):
-                    d_u_free = -pypardiso.spsolve(K_ff, b[free_dofs])
+                    d_u_free = -_PardisoFactors(K_ff, symmetric=False).solve(b[free_dofs])
                 else:
                     print('Solver not implemented')
 
