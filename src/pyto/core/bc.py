@@ -220,6 +220,46 @@ def _dirichlet_pattern(bc: BC, idx, ndof: int, fixed):
   return pattern
 
 
+def _dirichlet_rhs(idx, val, f, bc: BC):
+  """f - K u_pres with the fixed dofs' entries set to their prescribed values, for K given by its stored entries
+  (idx, val). K @ u_pres is written as an explicit scatter over K's stored nonzeros rather than torch.sparse.mm:
+  the backward of sparse.mm w.r.t. K (SparseAddmmBackward) materializes a dense (ndof x ndof) gradient -- ~48 GB at
+  77k dof -- and OOM-killed large problems (LBracketThick, ThreeHoleBracket, GEGrabCAD) inside torch.autograd.grad."""
+  device, dtype = val.device, val.dtype
+  fixed = torch.from_numpy(bc.fixed_dofs).to(device=device, dtype=torch.long)
+  dir_vals = torch.from_numpy(bc.dirichlet_values).to(device=device, dtype=dtype)
+  u_pres = torch.zeros(f.shape[0], device=device, dtype=dtype)
+  u_pres[fixed] = dir_vals
+  reaction = torch.zeros(f.shape[0], device=device, dtype=dtype).index_add(0, idx[0], val * u_pres[idx[1]])
+  f_mod = f - reaction
+  f_mod[fixed] = dir_vals
+  return f_mod
+
+
+def _dirichlet_values(idx, val, bc: BC):
+  """The stored values of the Dirichlet-modified matrix (fixed rows and columns zeroed, their diagonal 1) for a
+  coalesced matrix with entries (idx, val), or None when some fixed dof has no stored diagonal entry.
+
+  The sparsity pattern and the fixed dofs do not change between solves of one problem: which stored entries to
+  zero and which are the fixed dofs' diagonal entries is found once and cached on bc. Each solve then only
+  replaces values, and the pattern keeps its (coalesced) order, so nothing is sorted again."""
+  fixed = torch.from_numpy(bc.fixed_dofs).to(device=val.device, dtype=torch.long)
+  pattern = _dirichlet_pattern(bc, idx, bc.num_dofs, fixed)
+  if pattern is None:
+    return None
+  zero, diag = pattern
+  val = torch.where(zero, torch.zeros((), device=val.device, dtype=val.dtype), val)
+  return torch.where(diag, torch.ones((), device=val.device, dtype=val.dtype), val)
+
+
+def apply_dirichlet_bc_values(idx, val, f, bc: BC):
+  """(val_mod, f_mod) of apply_dirichlet_bc_torch on the stored values of a coalesced matrix (indices idx), so the
+  solve can take values and no sparse tensor is in the autograd graph; None when some fixed dof has no stored
+  diagonal entry (use apply_dirichlet_bc_torch then)."""
+  val_mod = _dirichlet_values(idx, val, bc)
+  return None if val_mod is None else (val_mod, _dirichlet_rhs(idx, val, f, bc))
+
+
 def apply_dirichlet_bc_torch(K, f, bc: BC):
   """Imposes Dirichlet boundary conditions on a torch-based linear system.
 
@@ -241,39 +281,18 @@ def apply_dirichlet_bc_torch(K, f, bc: BC):
   """
 
   device, dtype = K.device, K.dtype
-  ndof = K.shape[0]
-
-  fixed = torch.from_numpy(bc.fixed_dofs).to(device=device, dtype=torch.long)
-  dir_vals = torch.from_numpy(bc.dirichlet_values).to(device=device, dtype=dtype)
-
-  # prescribed displacement vector
-  u_pres = torch.zeros(ndof, device=device, dtype=dtype)
-  u_pres[fixed] = dir_vals
 
   # coalesce once (a no-op when the assembly flags K as coalesced, as the hex FE solvers do)
   Kc = K.coalesce()
   idx = Kc.indices()
   val = Kc.values()
 
-  # modify RHS: f_mod = f - K * u_pres, then enforce dirichlet values at fixed dofs.
-  # K @ u_pres is written as an explicit scatter over K's stored nonzeros rather than
-  # torch.sparse.mm: the backward of sparse.mm w.r.t. K (SparseAddmmBackward) materializes
-  # a dense (ndof x ndof) gradient -- ~48 GB at 77k dof -- and OOM-killed large problems
-  # (LBracketThick, ThreeHoleBracket, GEGrabCAD) inside torch.autograd.grad.
-  reaction = torch.zeros(ndof, device=device, dtype=dtype).index_add(0, idx[0], val * u_pres[idx[1]])
-  f_mod = f - reaction
-  f_mod[fixed] = dir_vals
+  f_mod = _dirichlet_rhs(idx, val, f, bc)
+  val_mod = _dirichlet_values(idx, val, bc)
+  if val_mod is not None:
+    return torch.sparse_coo_tensor(idx, val_mod, Kc.shape, device=device, dtype=dtype, is_coalesced=True), f_mod
 
-  # The sparsity pattern and the fixed dofs do not change between solves of one problem: which stored entries to
-  # zero and which are the fixed dofs' diagonal entries is found once and cached on bc. Each solve then only
-  # replaces values, and the pattern keeps its (coalesced) order, so nothing is sorted again.
-  pattern = _dirichlet_pattern(bc, idx, ndof, fixed)
-  if pattern is not None:
-    zero, diag = pattern
-    val = torch.where(zero, torch.zeros((), device=device, dtype=dtype), val)
-    val = torch.where(diag, torch.ones((), device=device, dtype=dtype), val)
-    return torch.sparse_coo_tensor(idx, val, Kc.shape, device=device, dtype=dtype, is_coalesced=True), f_mod
-
+  fixed = torch.from_numpy(bc.fixed_dofs).to(device=device, dtype=torch.long)
   # zero rows and cols corresponding to fixed dofs
   rows, cols = idx[0], idx[1]
   mask = torch.isin(rows, fixed) | torch.isin(cols, fixed)

@@ -246,64 +246,81 @@ def _factorize(A_csr, solver_kind, solver_params):
     return _DirectEachTime(A_csr, solver_kind, solver_params)
 
 
+def _solve_forward(ctx, indices, values, shape, b, solver_kind, solver_params):
+    """Factorize the coalesced matrix (indices, values), solve for b, and keep what the adjoint needs on ctx."""
+    idx = indices.detach().cpu().numpy()
+    vals = values.detach().cpu().numpy()
+    b_np = b.detach().cpu().numpy()
+
+    # A coalesced tensor lists its entries row by row, columns ascending: that is CSR order already, so the
+    # matrix is built without sorting (a COO -> CSC -> CSR round trip sorted all entries twice per solve).
+    indptr = np.zeros(shape[0] + 1, dtype=np.int64)
+    np.cumsum(np.bincount(idx[0], minlength=shape[0]), out=indptr[1:])
+    A_csr = spy_sprs.csr_matrix((vals, idx[1], indptr), shape=shape)
+    A_csr.has_sorted_indices = True
+
+    ctx.mtrx_shape = shape
+    ctx.b_dtype = b.dtype
+    ctx.b_device = b.device
+
+    # One solver object per forward solve: the adjoint (backward) and any analytical-sensitivity solves
+    # use the same matrix and the same factors/preconditioner (see FE solvers' adjoint_solve).
+    factorization = _factorize(A_csr, solver_kind, solver_params)
+    x_np = factorization.solve(b_np)
+    ctx.factorization = factorization
+    keep = solver_params.get("keep")
+    if keep is not None:
+        keep["factorization"] = factorization
+
+    # Save minimal tensors for backward
+    ctx.save_for_backward(indices, torch.from_numpy(np.asarray(x_np)))
+
+    return torch.tensor(x_np, dtype=b.dtype, device=b.device)
+
+
+def _solve_backward(ctx, grad_x, need_vals, need_b):
+    """Adjoint A^T y = grad_x with the forward solve's factors / preconditioner. Returns the gradients w.r.t. the
+    stored values (-y_i x_j at each entry (i, j)) and w.r.t. b (y), None where not needed."""
+    indices, x_torch = ctx.saved_tensors
+    y_np = ctx.factorization.solve_transpose(grad_x.cpu().numpy())
+    y_t = torch.tensor(y_np, dtype=ctx.b_dtype, device=ctx.b_device)
+    grad_vals = None
+    if need_vals:
+        grad_vals = -(y_t.index_select(0, indices[0]) * x_torch.index_select(0, indices[1]))
+    return grad_vals, (y_t if need_b else None)
+
+
 class SparseLinearSolve(torch.autograd.Function):
+    """x = A^-1 b for a torch sparse A. Its gradient w.r.t. A is a sparse tensor, which autograd maps back onto
+    whatever built A with sparse_mask (sorting the gradient) on every solve; the FE solvers use SparseValuesSolve."""
+
     @staticmethod
     def forward(ctx, mtrx, b, solver_kind, solver_params):
         mtrx = mtrx.coalesce()
-        idx = mtrx.indices().detach().cpu().numpy()
-        vals = mtrx.values().detach().cpu().numpy()
-        shape = mtrx.shape
-        b_np = b.detach().cpu().numpy()
-
-        # A coalesced tensor lists its entries row by row, columns ascending: that is CSR order already, so the
-        # matrix is built without sorting (a COO -> CSC -> CSR round trip sorted all entries twice per solve).
-        indptr = np.zeros(shape[0] + 1, dtype=np.int64)
-        np.cumsum(np.bincount(idx[0], minlength=shape[0]), out=indptr[1:])
-        A_csr = spy_sprs.csr_matrix((vals, idx[1], indptr), shape=shape)
-        A_csr.has_sorted_indices = True
-
-        ctx.mtrx_shape = shape
-        ctx.b_dtype = b.dtype
-        ctx.b_device = b.device
-
-        # One solver object per forward solve: the adjoint (backward) and any analytical-sensitivity solves
-        # use the same matrix and the same factors/preconditioner (see FE solvers' adjoint_solve).
-        factorization = _factorize(A_csr, solver_kind, solver_params)
-        x_np = factorization.solve(b_np)
-        ctx.factorization = factorization
-        keep = solver_params.get("keep")
-        if keep is not None:
-            keep["factorization"] = factorization
-
-        # Save minimal tensors for backward
-        ctx.save_for_backward(mtrx.indices(), mtrx.values(), torch.from_numpy(np.asarray(x_np)))
-
-        return torch.tensor(x_np, dtype=b.dtype, device=b.device)
+        return _solve_forward(ctx, mtrx.indices(), mtrx.values(), mtrx.shape, b, solver_kind, solver_params)
 
     @staticmethod
     def backward(ctx, grad_x):
-        mtrx_indices, mtrx_values, x_torch = ctx.saved_tensors
-        shape = ctx.mtrx_shape
-
+        grad_vals, grad_b = _solve_backward(ctx, grad_x, ctx.needs_input_grad[0], ctx.needs_input_grad[1])
         grad_A_sparse = None
-        grad_b = None
-
-        # adjoint: A^T y = grad_x, with the forward solve's factors / preconditioner
-        y_np = ctx.factorization.solve_transpose(grad_x.cpu().numpy())
-
-        y_t = torch.tensor(y_np, dtype=ctx.b_dtype, device=ctx.b_device)
-
-        if ctx.needs_input_grad[1]:
-            grad_b = y_t
-
-        if ctx.needs_input_grad[0]:
-            rows, cols = mtrx_indices[0], mtrx_indices[1]
-            y_rows = y_t.index_select(0, rows)
-            x_cols = x_torch.index_select(0, cols)
-            grad_vals = -(y_rows * x_cols)
-            grad_A_sparse = torch.sparse_coo_tensor(mtrx_indices, grad_vals, shape)
-
+        if grad_vals is not None:
+            grad_A_sparse = torch.sparse_coo_tensor(ctx.saved_tensors[0], grad_vals, ctx.mtrx_shape)
         return grad_A_sparse, grad_b, None, None
+
+
+class SparseValuesSolve(torch.autograd.Function):
+    """SparseLinearSolve for A given by the values of a fixed, coalesced pattern (indices). The gradient w.r.t. the
+    values is a dense vector, so no sparse tensor is in the autograd graph: at 318k dofs the sparse_mask of
+    SparseLinearSolve's gradient took 1.8 s per solve, longer than a PARDISO factorization at 59k dofs."""
+
+    @staticmethod
+    def forward(ctx, values, b, indices, shape, solver_kind, solver_params):
+        return _solve_forward(ctx, indices, values, shape, b, solver_kind, solver_params)
+
+    @staticmethod
+    def backward(ctx, grad_x):
+        grad_vals, grad_b = _solve_backward(ctx, grad_x, ctx.needs_input_grad[0], ctx.needs_input_grad[1])
+        return grad_vals, grad_b, None, None, None, None
 
 
 def solve(
@@ -327,6 +344,22 @@ def solve(
     Returns:
         x: Solution tensor (ndof,).
     """
+    solver_kind, solver_options = _solver_setup(solver, solver_options, keep)
+    return SparseLinearSolve.apply(mtrx, b, solver_kind, solver_options)
+
+
+def solve_values(
+    indices: torch.Tensor, values: torch.Tensor, shape, b: torch.Tensor, solver=None, solver_options: dict = None,
+    keep: dict = None
+) -> torch.Tensor:
+    """solve() for a matrix given as the values of a coalesced pattern (indices: (2, nnz), row-major and unique),
+    differentiable w.r.t. values and b without sparse tensors in the graph (see SparseValuesSolve)."""
+    solver_kind, solver_options = _solver_setup(solver, solver_options, keep)
+    return SparseValuesSolve.apply(values, b, indices, tuple(shape), solver_kind, solver_options)
+
+
+def _solver_setup(solver, solver_options, keep):
+    """(solver_kind, solver_options) for the solve Functions, from a Solvers enum and the caller's options."""
     # We don't import linear_solvers here; we just look at .name if present.
     solver_name = getattr(solver, "name", None)
     kinds = {"PETSC": "petsc", "PARDISO": "pardiso", "SPSOLVE": "spsolve", "SPLU": "spsolve", None: "spsolve",
@@ -339,7 +372,7 @@ def solve(
         warnings.warn(
             f"Solvers.{solver_name} is not implemented for the torch-autodiff sparse solve path "
             "(pyto.autodiff.sparse_solve) -- falling back to a direct SPSOLVE factorization.",
-            stacklevel=2,
+            stacklevel=3,
         )
         solver_kind = "spsolve"
 
@@ -349,4 +382,4 @@ def solve(
         keep["factorization"] = None          # release the previous solve's factors before factorizing again
         solver_options["keep"] = keep
 
-    return SparseLinearSolve.apply(mtrx, b, solver_kind, solver_options)
+    return solver_kind, solver_options

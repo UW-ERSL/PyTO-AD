@@ -8,12 +8,12 @@ import time
 import pyvista as pv
 import pyto.core.mat_lib as mat_lib
 import pyto.core.bc as bound_cond
-from pyto.core.bc import apply_dirichlet_bc_torch
+from pyto.core.bc import apply_dirichlet_bc_torch, apply_dirichlet_bc_values
 import pyto.physics.hex_element_stiffness as hex_element_stiffness
 import pyto.solve.deflation as deflation
 import pyto.autodiff.sparse_solve as torch_spsolve
 import pyto.solve.numpy_backend as linear_solvers
-from pyto.autodiff.sparse_solve import solve as sparse_spsolve
+from pyto.autodiff.sparse_solve import solve as sparse_spsolve, solve_values
 from pyto.gui.hex_plotter import HexFEAPlotter
 
 
@@ -241,14 +241,19 @@ class HexStructuralFEA:
       self.total_force = f
 
 
-      # 5) apply Dirichlet BCs
-      K_bc, f_bc = apply_dirichlet_bc_torch(self.stiff_mtrx, f, self.bc)
-
-
-      # 6) linear solve
+      # 5) apply Dirichlet BCs and 6) linear solve. On the stored values when the pattern allows: the autograd graph
+      # then holds no sparse tensor, whose backward re-sorts the gradient w.r.t. K on every solve (sparse_mask)
       self._last_solve = {}
-      u = sparse_spsolve(K_bc, f_bc, solver=self.solver, solver_options=self._solver_options(),
-                         keep=self._last_solve)  # (ndof,)
+      bc_values = None if self._spring_K is not None else apply_dirichlet_bc_values(
+          self._unique_indices, agg_vals, f, self.bc)
+      if bc_values is not None:
+          K_vals, f_bc = bc_values
+          u = solve_values(self._unique_indices, K_vals, (ndof, ndof), f_bc, solver=self.solver,
+                           solver_options=self._solver_options(), keep=self._last_solve)  # (ndof,)
+      else:
+          K_bc, f_bc = apply_dirichlet_bc_torch(self.stiff_mtrx, f, self.bc)
+          u = sparse_spsolve(K_bc, f_bc, solver=self.solver, solver_options=self._solver_options(),
+                             keep=self._last_solve)  # (ndof,)
 
       # 7) post (deformation magnitudes)
       self.sol = u

@@ -6,13 +6,13 @@ import pyto.solve.numpy_backend as lin_sol
 import pyto.physics.hex_element_stiffness as elem_stiff
 import pyto.core.mat_lib as mat_lib
 import pyto.core.bc as bound_cond
-from pyto.core.bc import apply_dirichlet_bc_torch
+from pyto.core.bc import apply_dirichlet_bc_torch, apply_dirichlet_bc_values
 import os
 import pyvista as pv
 import scipy.sparse as sp
 import pyto.solve.deflation as deflation
 import pyto.autodiff.sparse_solve as torch_spsolve
-from pyto.autodiff.sparse_solve import solve as sparse_spsolve
+from pyto.autodiff.sparse_solve import solve as sparse_spsolve, solve_values
 from pyto.autodiff.material_model import *
 from pyto.examples_benchmarks.hex_thermal_examples import HexThermalExamples
 from pyto.gui.hex_plotter import HexFEAPlotter
@@ -165,11 +165,17 @@ class HexThermalFEA:
 
     f = self._bc_force_torch
 
-    K_bc, f_bc = apply_dirichlet_bc_torch(self.stiff_mtrx, f, self.bc)
-
+    # Dirichlet BCs and solve on the stored values when the pattern allows (see HexStructuralFEA.solve)
     self._last_solve = {}
-    sol = sparse_spsolve(K_bc, f_bc, solver=self.solver, solver_options=self._solver_options(),
-                         keep=self._last_solve)
+    bc_values = apply_dirichlet_bc_values(self._unique_indices, agg_vals, f, self.bc)
+    if bc_values is not None:
+      K_vals, f_bc = bc_values
+      sol = solve_values(self._unique_indices, K_vals, (ndof, ndof), f_bc, solver=self.solver,
+                         solver_options=self._solver_options(), keep=self._last_solve)
+    else:
+      K_bc, f_bc = apply_dirichlet_bc_torch(self.stiff_mtrx, f, self.bc)
+      sol = sparse_spsolve(K_bc, f_bc, solver=self.solver, solver_options=self._solver_options(),
+                           keep=self._last_solve)
 
     self.sol = sol
     return sol
