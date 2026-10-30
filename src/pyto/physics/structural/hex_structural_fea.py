@@ -195,8 +195,10 @@ class HexStructuralFEA:
       agg_vals   = torch.zeros(self._n_unique, dtype=dtype, device=device)
       agg_vals.index_add_(0, self._scatter_inverse, vals)         # sum duplicates once
 
+      # the index list is np.unique of row*ndof+col: unique and in coalesced order, so later coalesce() calls
+      # (Dirichlet BC, solve) need not sort the ~25 entries per DOF again
       self.stiff_mtrx = torch.sparse_coo_tensor(
-          self._unique_indices, agg_vals, (ndof, ndof), device=device, dtype=dtype
+          self._unique_indices, agg_vals, (ndof, ndof), device=device, dtype=dtype, is_coalesced=True
       )
       # 3) add external springs (if any), precomputed once in __init__
       if self._spring_K is not None:

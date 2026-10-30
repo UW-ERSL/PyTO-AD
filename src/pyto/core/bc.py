@@ -201,6 +201,25 @@ def impose_dirichlet_bc(A: spy_sprs.csr_matrix,
   else:
     raise NotImplementedError("impose_dirichlet_bc not implemented for constraint_matrix BCs; see linear_solvers.solver function")
   
+def _dirichlet_pattern(bc: BC, idx, ndof: int, fixed):
+  """(zero, diag) boolean masks over the stored entries idx of a coalesced matrix: entries in a fixed dof's row or
+  column, and the fixed dofs' diagonal entries. Cached on bc for the pattern and fixed dofs it was built for; None
+  when some fixed dof has no stored diagonal entry (the caller then adds the diagonal the general way)."""
+  fixed_np = np.asarray(bc.fixed_dofs)
+  nnz = int(idx.shape[1])
+  sample = idx[:, ::max(1, nnz // 64)]                       # guards against a new pattern at a reused address
+  key = (idx.data_ptr(), nnz, int(ndof), hash(fixed_np.tobytes()), hash(sample.cpu().numpy().tobytes()))
+  cache = getattr(bc, "_dirichlet_cache", None)
+  if cache is not None and cache[0] == key:
+    return cache[1]
+  rows, cols = idx[0], idx[1]
+  zero = torch.isin(rows, fixed) | torch.isin(cols, fixed)
+  diag = zero & (rows == cols)
+  pattern = (zero, diag) if int(diag.sum()) == len(np.unique(fixed_np)) else None
+  bc._dirichlet_cache = (key, pattern)
+  return pattern
+
+
 def apply_dirichlet_bc_torch(K, f, bc: BC):
   """Imposes Dirichlet boundary conditions on a torch-based linear system.
 
@@ -231,7 +250,7 @@ def apply_dirichlet_bc_torch(K, f, bc: BC):
   u_pres = torch.zeros(ndof, device=device, dtype=dtype)
   u_pres[fixed] = dir_vals
 
-  # coalesce once
+  # coalesce once (a no-op when the assembly flags K as coalesced, as the hex FE solvers do)
   Kc = K.coalesce()
   idx = Kc.indices()
   val = Kc.values()
@@ -244,6 +263,16 @@ def apply_dirichlet_bc_torch(K, f, bc: BC):
   reaction = torch.zeros(ndof, device=device, dtype=dtype).index_add(0, idx[0], val * u_pres[idx[1]])
   f_mod = f - reaction
   f_mod[fixed] = dir_vals
+
+  # The sparsity pattern and the fixed dofs do not change between solves of one problem: which stored entries to
+  # zero and which are the fixed dofs' diagonal entries is found once and cached on bc. Each solve then only
+  # replaces values, and the pattern keeps its (coalesced) order, so nothing is sorted again.
+  pattern = _dirichlet_pattern(bc, idx, ndof, fixed)
+  if pattern is not None:
+    zero, diag = pattern
+    val = torch.where(zero, torch.zeros((), device=device, dtype=dtype), val)
+    val = torch.where(diag, torch.ones((), device=device, dtype=dtype), val)
+    return torch.sparse_coo_tensor(idx, val, Kc.shape, device=device, dtype=dtype, is_coalesced=True), f_mod
 
   # zero rows and cols corresponding to fixed dofs
   rows, cols = idx[0], idx[1]
