@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.sparse import coo_matrix
+from scipy.spatial import cKDTree
 import pyto.core.hex_mesher as hex_mesher
 
 
@@ -18,23 +19,13 @@ def createSmoothingFilter(mesh: hex_mesher.HexMesher, rel_filter_radius: float =
 			Hs: Array of row sums of H matrix.
 	"""
 	num_elems = mesh.num_elems
-	iH = []
-	jH = []
-	sH = []
 	r_min = rel_filter_radius * mesh.elem_size[0]
-	for e in range(num_elems):
-		elemCenter = mesh.elem_centers[e, :]
-		elems_within_radius = mesh.get_elems_within_radius(elemCenter, r_min)
-		for i in elems_within_radius:
-			dist = np.linalg.norm(mesh.elem_centers[e, :] - mesh.elem_centers[i, :])
-			if (dist > r_min):
-				continue
-			weight = (r_min - dist)/r_min
-			iH.append(e)
-			jH.append(i)
-			sH.append(weight)
+	# all element pairs with center distance <= r_min (each element with itself included), in one KD-tree query
+	tree = cKDTree(mesh.elem_centers)
+	dist = tree.sparse_distance_matrix(tree, r_min, output_type="coo_matrix")
+	weight = (r_min - dist.data)/r_min
 
-	H = coo_matrix((sH, (iH, jH)), shape=(num_elems, num_elems)).tocsc()
+	H = coo_matrix((weight, (dist.row, dist.col)), shape=(num_elems, num_elems)).tocsc()
 	Hs = np.array(H.sum(1)).squeeze()
 	return H, Hs
 

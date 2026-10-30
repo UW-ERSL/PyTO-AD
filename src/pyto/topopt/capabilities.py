@@ -104,16 +104,16 @@ def check_gradient(to_params, fe_solver, n_elements: int = 5, rel_step: float = 
     autograd. Returns one GradientCheck per function.
     """
     from pyto.autodiff.qoi import compute_constraint_and_gradient, compute_objective_and_gradient
-    from pyto.topopt.drivers._shared import (compute_element_stiffness, createFilters, heaviside_projection,
-                                             torch_sparse_filter)
+    from pyto.topopt.drivers._shared import (TorchDensityFilter, compute_element_stiffness, createFilters,
+                                             heaviside_projection)
     KE = torch.tensor(compute_element_stiffness(fe_solver))
     chain = lambda z: z                                   # design variable -> physical density
     if through_filter and to_params.APPLY_FILTER_TO_DENSITY:
-        H, Hs = torch_sparse_filter(*createFilters(fe_solver, to_params))
+        density_filter = TorchDensityFilter(*createFilters(fe_solver, to_params))
         project = bool(to_params.HeavisideProjection)
 
         def chain(z):
-            zf = torch.sparse.mm(H, z.unsqueeze(1)).squeeze(1) / Hs
+            zf = density_filter(z)
             return heaviside_projection(zf, 1.0) if project else zf     # beta = 1, the driver's first iterations
     mm = MaterialModel.SIMP
     rng = np.random.default_rng(seed)

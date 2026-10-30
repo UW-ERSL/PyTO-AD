@@ -1,7 +1,10 @@
 """Setup shared by the optimizer drivers (mma.py, oc.py): density filters, elements-with-forces, element stiffness
 matrix, nodal body force mapping. Defined once here so the drivers cannot diverge.
 """
+import warnings
+
 import numpy as np
+import torch
 
 import pyto.physics.hex_element_stiffness as hex_element_stiffness
 import pyto.physics.structural.hex_structural_fea as hex_structural_fea
@@ -120,6 +123,44 @@ def torch_sparse_filter(H, Hs):
     ).coalesce()
     Hs_torch = torch.tensor(np.asarray(Hs).flatten(), dtype=torch.float64)
     return H_torch, Hs_torch
+
+
+class _CsrMatmul(torch.autograd.Function):
+    """H @ x, with HT @ g as the backward; both are torch CSR products. torch.sparse.mm on a COO H is ~25x slower
+    forward, and its backward transposes and re-sorts H on every call."""
+
+    @staticmethod
+    def forward(ctx, x, H, HT):
+        ctx.HT = HT
+        return H @ x
+
+    @staticmethod
+    def backward(ctx, g):
+        return ctx.HT @ g, None, None
+
+
+class TorchDensityFilter:
+    """x -> H x / Hs for the constant scipy-sparse density filter, differentiable by autograd. H and H^T are held as
+    torch CSR (H^T stored on its own: symmetry and extrusion filters make H unsymmetric)."""
+
+    def __init__(self, H, Hs):
+        def csr(A):
+            A = A.tocsr()
+            A.sort_indices()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)      # "sparse CSR support is in beta state"
+                return torch.sparse_csr_tensor(torch.from_numpy(A.indptr.astype(np.int64)),
+                                               torch.from_numpy(A.indices.astype(np.int64)),
+                                               torch.from_numpy(A.data.astype(np.float64)), A.shape)
+        self.H, self.HT = csr(H), csr(H.T)
+        self.Hs = torch.tensor(np.asarray(Hs).flatten(), dtype=torch.float64)
+
+    def __call__(self, x):
+        return _CsrMatmul.apply(x, self.H, self.HT) / self.Hs
+
+    def transpose(self, g):
+        """H^T (g / Hs) for each row of g, shape (k, n): the chain rule through __call__ by hand."""
+        return (self.HT @ (g / self.Hs).T).T
 
 
 BINARIZATION_MAX_LOSS = 1.0   # reject a 0/1 design more than (1 + this) times worse than the continuous one

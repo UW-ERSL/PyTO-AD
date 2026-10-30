@@ -7,7 +7,8 @@ import math
 import time
 import matplotlib.pyplot as plt
 from pyto.topopt.drivers.mmaWrapper import runMMA
-from pyto.topopt.drivers._shared import binarization_acceptable, heaviside_projection, setup_driver_state, torch_sparse_filter
+from pyto.topopt.drivers._shared import (TorchDensityFilter, binarization_acceptable, heaviside_projection,
+                                         setup_driver_state)
 from pyto.topopt.manual_sensitivities import manual_gradients
 from pyto.examples_benchmarks.topopt_structural_benchmarks import *
 from pyto.examples_benchmarks.topopt_thermal_benchmarks import *
@@ -140,7 +141,7 @@ def topopt_mma(fe_solver, #hex_structural_fea.HexStructuralFEA or hex_thermal_fe
     # Torch-sparse copies of the (constant) filter, used inside the autograd
     # chain below -- H is a scipy sparse matrix, which can't be matmul'd
     # against a grad-tracked torch tensor directly.
-    H_torch, Hs_torch = torch_sparse_filter(H, Hs)
+    density_filter = TorchDensityFilter(H, Hs)
 
     success = True
     errorMsg = "No errors."
@@ -181,7 +182,7 @@ def topopt_mma(fe_solver, #hex_structural_fea.HexStructuralFEA or hex_thermal_fe
         def chain(x_raw: torch.Tensor):
             # Density filtering for ANALYSIS
             x_filtered = (
-                torch.sparse.mm(H_torch, x_raw.unsqueeze(1)).squeeze(1) / Hs_torch
+                density_filter(x_raw)
             ) if to_params.APPLY_FILTER_TO_DENSITY else x_raw
 
             if to_params.APPLY_FILTER_TO_DENSITY and to_params.HeavisideProjection:
@@ -254,8 +255,7 @@ def topopt_mma(fe_solver, #hex_structural_fea.HexStructuralFEA or hex_thermal_fe
         gradient w.r.t. the physical density comes from manual_sensitivities and is chained back through the
         Heaviside projection and the density filter by hand."""
         with torch.no_grad():
-            x_f = (torch.sparse.mm(H_torch, x_raw.unsqueeze(1)).squeeze(1) / Hs_torch
-                   ) if to_params.APPLY_FILTER_TO_DENSITY else x_raw
+            x_f = density_filter(x_raw) if to_params.APPLY_FILTER_TO_DENSITY else x_raw
             dproj = None
             if to_params.APPLY_FILTER_TO_DENSITY and to_params.HeavisideProjection:
                 beta = min(to_params.HeavisideBetaMax, 2.0 ** (mmaIterations // to_params.HeavisideBetaInterval))
@@ -272,7 +272,7 @@ def topopt_mma(fe_solver, #hex_structural_fea.HexStructuralFEA or hex_thermal_fe
         if dproj is not None:
             g = g * dproj
         if to_params.APPLY_FILTER_TO_DENSITY:                                          # x_f = H x / Hs
-            g = torch.sparse.mm(H_torch.t(), (g / Hs_torch).t()).t()
+            g = density_filter.transpose(g)
         g = g.cpu().numpy()
         return (obj_t.detach().cpu().numpy(), g[0], c_t.detach().cpu().numpy().reshape(-1, 1), g[1:],
                 sol_t.detach().cpu().numpy(), x_f.cpu().numpy())
